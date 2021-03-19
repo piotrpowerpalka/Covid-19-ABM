@@ -29,8 +29,14 @@ global
 	float current_hum <- 85.0;
 	
 	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow  
-	string model_folder <- "pow_ropczycko_sedziszowski";
+	string model_folder <- "testowy";
+	string strig_file <- "stirgency.csv";
+	
+	//string model_folder <- "pow_pruszkowski";
 	string csv_file_name <- "";
+	
+	bool use_strigency_index <- false;
+	bool use_vaccinations <- false;
 	
 	bool isQuarantine <- true; //  
 	/* kwarantanna: ograniczenia w wychodzeniu z domu: --------------------------
@@ -63,11 +69,16 @@ simple face masks made from any of these fabrics/materials could
 signifi cantly lower overall transmission rates.
 	 */ 
 	 
-	float maska_prawidlowo <- 0.65;
+	float maska_prawidlowo <- 0.647; // na podstawie: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7241223/ 
+	/* 
+	 * In this study, 64.7% of participants obtained an overall moderate-to-poor 
+	 * score regarding the correct usage of a surgical face mask
+	 */
 	 
     int person_num <- 1000;
     int sympt_inf  <- 10;
     int asympt_inf <- 10;
+    int immune <- 0; // ile osob jest odpornych na COVID-19
     	
 	/*	COVID-19 ver_powiat */
 	file shape_file_budynki <- file("../includes/" + model_folder + "/budynki_region.shp");
@@ -152,6 +163,7 @@ signifi cantly lower overall transmission rates.
 	float max_speed <- 5.0 # km / # h;
 	graph the_graph;
 	
+	int number_IV <- 0;
 	int number_S <- 0;
 	int number_E <- 0;
 	int number_I <- 0;
@@ -172,8 +184,13 @@ signifi cantly lower overall transmission rates.
 		
 	// poczatkowe wyznacznie osob zakazonych
 	reflex set_infections when: cycle = 1 {
-		loop times: sympt_inf{
-			person hst <- one_of (person);
+		loop times: immune {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_IV <- true;
+			hst.SEIR_S <- false;
+		}
+		loop times: sympt_inf {
+			person hst <- one_of (person where each.SEIR_S);
 			
 			hst.infection_begin <- time;
             hst.SEIR_S <- false;
@@ -186,7 +203,7 @@ signifi cantly lower overall transmission rates.
     		else { hst.SEIR_ItoR <- true; }
 		}
 		loop times: asympt_inf{
-			person hst <- one_of (person);
+			person hst <- one_of (person where each.SEIR_S);
 			hst.infection_begin <- time;
         
             hst.SEIR_S <- false;
@@ -249,18 +266,26 @@ signifi cantly lower overall transmission rates.
 			lcolor <- #black;
 		}
 		
-	
-		/*create strigency from: csv_file("../includes/" + model_folder + "/stirgency.csv", ";", true) with:
-		[
-			datum::date(get("Date")),
-			school_closing::int(read("C1_School_closing")),
-			workplace_closing::int(read("C2_Workplace_closing")),
-			cancel_pub_events::int(read("C3_Cancel_public_events")),
-			stay_home::int(read("C6_Stay_at_home_requirements")),
-			face_covering::int(read("H6_Facial_Coverings")),
-		 	vaccination_policy::int(read("H7_Vaccination_policy"))
-		];*/
-		
+		if (use_strigency_index){
+			create strigency from: csv_file("../includes/" + model_folder + "/" + strig_file, ";", true) with:
+			[
+				datum::date(get("Date")),
+				school_closing::int(read("C1_School_closing")),
+				workplace_closing::int(read("C2_Workplace_closing")),
+				cancel_pub_events::int(read("C3_Cancel_public_events")),
+				stay_home::int(read("C6_Stay_at_home_requirements")),
+				face_covering::int(read("H6_Facial_Coverings")),
+			 	vaccination_policy::int(read("H7_Vaccination_policy"))
+			];
+		}
+		if (use_vaccinations){
+			create vac_policy from: csv_file("../includes/" + model_folder + "/vac_policy.csv", ";", true) with:
+			[
+				datum::date(get("Date")),
+				num_people::int(read("num_people"))
+			];
+		}
+				
 		create pogoda from: csv_file("../includes/" + model_folder + "/pogoda.csv", ";", true) with:
 		[
     		d::date(read("Date")),
@@ -527,15 +552,15 @@ signifi cantly lower overall transmission rates.
 				isMaskInside <- false;
 				isMaskOutside <- false;
 			} else if (face_covering = 1){
-				pr_nosi_maske <- 0.2;
+				pr_nosi_maske <- 0.5;
 				isMaskInside <- false;
 				isMaskOutside <- false;
 			} else if (face_covering = 2){
-				pr_nosi_maske <- 0.4;
+				pr_nosi_maske <- 0.6;
 				isMaskInside <- false;
 				isMaskOutside <- true;
 			} else if (face_covering = 3){
-				pr_nosi_maske <- 0.6;
+				pr_nosi_maske <- 0.7;
 				isMaskInside <- true;
 				isMaskOutside <- true;
 			} else if (face_covering = 4){
@@ -546,11 +571,26 @@ signifi cantly lower overall transmission rates.
 			
 		}
 	}
+	species vac_policy {
+		date datum;
+		int num_people;
+		
+		reflex get_vac_policy when: current_date = datum {
+			loop times: num_people {
+				person hst <- one_of (person where (!each.SEIR_D and !each.vaccinated));
+				if (flip( 0.7 )){
+					hst.SEIR_IV <- true;
+				}
+				hst.vaccinated <- true;			
+			}
+		}
+	}
 	species	person skills: [moving] parallel: true 
 	{
 		//----------------------------------------------------------------------------------------------------------- 
 		//----------------------------------- kolejne stany modelu --------------------------------------------------
 		//----------------------------------------------------------------------------------------------------------- 
+		bool SEIR_IV <- false; // Immune/vaccinated
 		bool SEIR_S <- true;  // Susceptible
 		bool SEIR_E <- false; // Exposed
     	bool SEIR_I <- false; // Symptomatic (I)nfected
@@ -558,6 +598,8 @@ signifi cantly lower overall transmission rates.
     	bool SEIR_P <- false; // (P)ositively Diagnozed
     	bool SEIR_D <- false; // Dead - nie wystapi, agent umiera
     	bool SEIR_R <- false; // Removed/recovered
+    	
+    	bool vaccinated <- false;
     	
     	bool SEIR_ItoP <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu P, ale agent wciaz jest w stanie I
     	bool SEIR_ItoD <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu D, ale agent wciaz jest w stanie I
@@ -1094,9 +1136,12 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Ile ludzi" var: person_num category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych objawowo na poczatku" var: sympt_inf category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych bezobjawowo na poczatku" var: asympt_inf category: "People" min: 0 max: 1000000;
+	parameter "Ile osob odpornych na poczatku" var: immune category: "People" min: 0 max: 1000000;
+	
 	
 	parameter "Folder z mapami" var: model_folder category: "Settings";
 	parameter "Plik wyjsciowy csv" var: csv_file_name category: "Settings";
+	parameter "Strigency policy file" var: strig_file category: "Settings";
 	
 	
 	parameter "Czy jest kwarantanna" var: isQuarantine category: "Kwarantanna";
@@ -1105,6 +1150,9 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Ograniczenia rozrywania sie podczas kwarantanny" var: ogr_rozrywka category: "Kwarantanna";
 	parameter "Ograniczenia chodzenia do lekarza podczas kwarantanny" var: ogr_leczenie category: "Kwarantanna";
 	parameter "Ograniczenia chodzenia do kosciola podczas kwarantanny" var: ogr_kosciol category: "Kwarantanna";
+	parameter "Strigency index" var: use_strigency_index category: "Kwarantanna";
+	parameter "Vaccination policy" var: use_vaccinations category: "Kwarantanna";
+	
 	
 	parameter "Czy wymagana jest maseczka wewnatrz budynkow" var: isMaskInside category: "Maseczka";
 	parameter "Czy wymagana jest maseczka poza budynkami" var: isMaskOutside category: "Maseczka";
@@ -1148,6 +1196,7 @@ experiment main_experiment until: (cycle <= 8065)
 		display chart refresh: every(10#cycles) {
 				chart "Plot" type: series background: #lightgray style: exploded {
 		//		data "susceptible" value: person count (each.S) color: #green;
+				data "Immune" value: person count (each.SEIR_IV) color: #green;  
 				data "Exposed" value: person count (each.SEIR_E) color: #blue;
 				data "Asymptotically infected" value: person count (each.SEIR_A) color: #orange;
 				data "Symptotically infected" value: person count (each.SEIR_I) color: #red;
@@ -1159,6 +1208,7 @@ experiment main_experiment until: (cycle <= 8065)
 		}
 		
 		monitor "Susceptible" name: num_S value: person count(each.SEIR_S);
+		monitor "Immune" name: num_IV value: person count(each.SEIR_IV);
 		monitor "Exposed" name: num_E value: person count(each.SEIR_E);
 		monitor "SymptoticalyInfected"  name: num_I value: person count(each.SEIR_I);
 		monitor "AsyptomaticalyInfected" name: num_A value: person count(each.SEIR_A);

@@ -282,7 +282,11 @@ signifi cantly lower overall transmission rates.
 			create vac_policy from: csv_file("../includes/" + model_folder + "/vac_policy.csv", ";", true) with:
 			[
 				datum::date(get("Date")),
-				num_people::int(read("num_people"))
+				Pfizer::int(read("Pfizer")),
+				AstraZeneca::int(read("AstraZeneca")),
+				Moderna::int(read("Moderna")),
+				JandJ::int(read("JandJ"))
+				
 			];
 		}
 				
@@ -371,7 +375,8 @@ signifi cantly lower overall transmission rates.
 	            SEIR_I <-  false; 
 	            SEIR_A <-  false; 
 	            SEIR_R <-  false; 
-	            SEIR_P <-  false; 
+	            SEIR_P <-  false;
+	            SEIR_V <- false; 
 	            color <- #black;
 			}
 		} 		
@@ -573,15 +578,56 @@ signifi cantly lower overall transmission rates.
 	}
 	species vac_policy {
 		date datum;
-		int num_people;
-		
+		int Moderna;
+		int Pfizer;
+		int AstraZeneca;
+		int JandJ;
+
 		reflex get_vac_policy when: current_date = datum {
-			loop times: num_people {
-				person hst <- one_of (person where (!each.SEIR_D and !each.vaccinated));
-				if (flip( 0.7 )){
-					hst.SEIR_IV <- true;
+			loop hst over: person{ // dni do nast szczepionki
+				if(hst.SEIR_V and hst.next_vac>0)
+				{
+					hst.next_vac <- hst.next_vac - 1;
+				} 
+			}
+			
+			// TODO 4 petle dla 4 szczepionek
+			loop times: Pfizer {  //TODO rozdzielic na kilka roznych szczepionek
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 1;
+				hst.next_vac <- 28; //TODO dac prawidlowe dni 
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
+				}	
+			}
+			loop times: Moderna {  //TODO rozdzielic na kilka roznych szczepionek
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =2 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 2;
+				hst.next_vac <- 28; //TODO dac prawidlowe dni 
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
 				}
-				hst.vaccinated <- true;			
+		
+			}
+			loop times: AstraZeneca {  //TODO rozdzielic na kilka roznych szczepionek
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =3 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 3;
+				hst.next_vac <- 28; //TODO dac prawidlowe dni 
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
+				}
+			
+			}
+			loop times: JandJ {  //TODO rozdzielic na kilka roznych szczepionek
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V ));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 4;			
 			}
 		}
 	}
@@ -598,8 +644,9 @@ signifi cantly lower overall transmission rates.
     	bool SEIR_P <- false; // (P)ositively Diagnozed
     	bool SEIR_D <- false; // Dead - nie wystapi, agent umiera
     	bool SEIR_R <- false; // Removed/recovered
+    	bool SEIR_V <- false; // Vaccinated
     	
-    	bool vaccinated <- false;
+    	//bool vaccinated <- false;
     	
     	bool SEIR_ItoP <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu P, ale agent wciaz jest w stanie I
     	bool SEIR_ItoD <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu D, ale agent wciaz jest w stanie I
@@ -619,6 +666,9 @@ signifi cantly lower overall transmission rates.
     	float wsp_osobniczy <- 1.0; // wspolczynnik osobniczy zakazenia, rozwazamy przedzial wiekowy i plec
     	float death_I <- dI;
     	float death_P <- dP;
+    	float vac_accuracy <- 0.0;
+    	int next_vac <- -1;
+    	int vac_id <- -1; // index szczepionki - roboczy
     	
     	bool nosi_maseczke <- flip(pr_nosi_maske); // nosi maseczke (przy nakazie)
     	
@@ -1004,7 +1054,7 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** reflexy odpowiedzialne za model SEAIRPD ***********************************
    	    //--------------------------------------------------------------------------------------------------------
-		reflex S_E when: SEIR_S and !TRV_C {
+		reflex S_E when: SEIR_S or SEIR_V and !TRV_C {
 
    	    	// kontakt z A lub I
    	    	int nb_hosts <- 0;
@@ -1040,8 +1090,50 @@ signifi cantly lower overall transmission rates.
 		
 			weather_infl <- exp((10.0 - current_temp) * 0.0374) 
 			              * exp((current_hum - 50.0)  * 0.0185);
+			float wsp_szczepien <- 1;
+			// TODO dobrac parametry
+			if(SEIR_V)
+			{
+				switch vac_id{
+					match 1{ //Pfizer
+						if(next_vac = -1){
+							wsp_szczepien <- 0.9;	
+						}
+						else{
+							wsp_szczepien <- 0.7;
+						}
+					}
+					
+					match 2{ // Moderna
+						if(next_vac = -1){
+							wsp_szczepien <- 0.9;	
+						}
+						else{
+							wsp_szczepien <- 0.7;
+						}
+						
+					}
+					
+					match 3{ // AstraZeneca
+						if(next_vac = -1){
+							wsp_szczepien <- 0.9;	
+						}
+						else{
+							wsp_szczepien <- 0.7;
+						}
+						
+					}
+					
+					match 4{ // Johnson and Johnson
+						wsp_szczepien <- 0.8;
+						
+					}
+				}
+			}
+			              
 			
-			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy){
+			
+			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy * wsp_szczepien){
 				SEIR_S <- false;
 	   	    	SEIR_E <- true;
 	   	    	color <- #blue;

@@ -25,12 +25,14 @@ model COVID19general
 global
 {
 	date starting_date <- date([2020,4,1,0,0,0]);
+	
 	float current_temp <- 20.0;
 	float current_hum <- 85.0;
 	
 	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow  
-	string model_folder <- "testowy";
+	string model_folder <- "pow_goldapski";
 	string strig_file <- "stirgency.csv";
+	string vacpol_file <- "vac_policy.csv";
 	
 	//string model_folder <- "pow_pruszkowski";
 	string csv_file_name <- "";
@@ -46,16 +48,16 @@ global
 	 * ogr_leczenie% - leczenie zdalne - teleporady
 	 * ogr_kosciol% - msze on-line
 	 */
-	float ogr_pracy <- 0.1;
+	float ogr_pracy <- 0.3;
 	float ogr_szkoly <- 0.1;
-	float ogr_zakupy <- 1.0/7.0; // raz w tygodniu
-	float ogr_rozrywka <- 0.0;
-	float ogr_leczenie <- 0.01; 
-	float ogr_kosciol <- 0.05; 
+	float ogr_zakupy <- 0.6; // raz w tygodniu
+	float ogr_rozrywka <- 0.0; // wg. dokumnetu USB
+	float ogr_leczenie <- 0.64; // wg. dokumnetu USB
+	float ogr_kosciol <- 0.66; // wg. dokumnetu USB
 	
 	bool isMaskInside <- true; // Nakaz noszenia maseczek wewnatrz budynkow
 	bool isMaskOutside <- true; // Nakaz noszenia maseczek na zewnatrz
-	float pr_nosi_maske <- 0.8;
+	float pr_nosi_maske <- 0.6; // wg. dokumentu USB
 	
 	float maska_ogr_rozsiewania_wirusa <- 1.0 / 2.3; // na podstawie https://aip.scitation.org/doi/full/10.1063/5.0025476 
 	float maska_ogr_zakazenia <- 1.0 / (7.3/2.3);    // https://aip.scitation.org/doi/full/10.1063/5.0025476
@@ -76,8 +78,12 @@ signifi cantly lower overall transmission rates.
 	 */
 	 
     int person_num <- 1000;
-    int sympt_inf  <- 10;
-    int asympt_inf <- 10;
+   	int exposed <- 14;
+    int sympt_inf  <- 1;
+    int asympt_inf <- 8;
+	int removed <- 10;
+	int posdiag <- 0;
+	int dead <- 0;
     int immune <- 0; // ile osob jest odpornych na COVID-19
     	
 	/*	COVID-19 ver_powiat */
@@ -85,7 +91,7 @@ signifi cantly lower overall transmission rates.
 	file shape_file_miejsca_pracy <- file("../includes/" + model_folder + "/miejsca_pracy_region.shp");
 	file shape_file_szkoly <- file("../includes/" + model_folder + "/szkoly_przedszk_region.shp");
 	file shape_file_zdrowie <- file("../includes/" + model_folder + "/zdrowie_region.shp");
-	file shape_file_stacje_pkp <- file("../includes/" + model_folder + "/PKP_region.shp");
+	file shape_file_stacje_pkp <- nil;
 	file shape_file_koscioly <- file("../includes/" + model_folder + "/koscioly_region.shp");
 	file shape_file_parki <- file("../includes/" + model_folder + "/parki_lasy_region.shp");
 	file shape_file_muzea <- file("../includes/" + model_folder + "/muzea_biblioteki_region.shp");
@@ -172,42 +178,97 @@ signifi cantly lower overall transmission rates.
 	int number_P <- 0;
 	int number_D <- 0;
 	
+	int integral_I <- 0;
+	int integral_A <- 0;
+	int integral_D <- 0;
+	int integral_P <- 0;
+	
+	int int_I <- 0;
+	int int_A <- 0;
+	int int_D <- 0;
+	int int_P <- 0;
+	
 	// do dopracowania!!!!!!!
 	float p_muzeum <- 0.02739;  	// prawdopodobienstwo (dzienne) pojscia do instytucji kultury (raz w roku)
 	float p_park <- 0.2857;		// prawdopodobienstwo (dzienne) pojscia na spacer do parku/lasu (dwa razy w tygodniu)
 	float p_zakupy <- 0.5714;		// prawdopodobienstwo (dzienne) pojscia na zakupy
 	
-	float pr_samochod <- 0.5;   // procent osob jezdzacych samochodem
+	float pr_samochod <- 0.8;   // procent osob jezdzacych samochodem
 	
 	
 	// artykul o noszeniu maseczek: https://aip.scitation.org/doi/full/10.1063/5.0025476
 		
 	// poczatkowe wyznacznie osob zakazonych
-	reflex set_infections when: cycle = 1 {
+	reflex set_history when: cycle = 0 {
 		loop times: immune {
 			person hst <- one_of (person where each.SEIR_S);
 			hst.SEIR_IV <- true;
 			hst.SEIR_S <- false;
 		}
+		loop times: dead {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_D <- true;
+			hst.SEIR_S <- false;
+		}
+		loop times: exposed {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_E <- true;
+			hst.SEIR_S <- false;
+			hst.expose_begin <- time - floor(rnd(0, hst.incubation_time - step) / step) * step;
+	   	    hst.kiedy_zakazony <- hst.expose_begin ;
+	   	    hst.gdzie_zakazony <- location;	
+		}
+		loop times: removed {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_R <- true;
+			hst.SEIR_S <- false;
+		}
+		loop times: posdiag {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_P <- true;
+			hst.SEIR_S <- false;			
+			hst.diagnose_begin <- time;
+			
+			if flip(hst.death_P){
+				hst.diagnose_begin <- time - floor(rnd(0, max(0, hst.time_to_death - hst.diagnose_time)) / step) * step;
+				hst.SEIR_PtoD <- true;
+			} else {
+				// wyzdrowienie, po przejsciu kwarantanny
+				hst.diagnose_begin <- time - floor(rnd(0, hst.recovery_time - hst.diagnose_time) /step) * step;
+				hst.SEIR_PtoR <- true;
+			}
+		}
 		loop times: sympt_inf {
 			person hst <- one_of (person where each.SEIR_S);
 			
-			hst.infection_begin <- time;
+			
             hst.SEIR_S <- false;
             hst.SEIR_I <-  true; 
             hst.color <- #red;
+            integral_I <- integral_I + 1; 
             
             //TODO: sprawdzic czy to samo jak w E_IA
- 			if flip(eps) { hst.SEIR_ItoP <- true; }
-    		else if flip(dI) { hst.SEIR_ItoD <- true; }
-    		else { hst.SEIR_ItoR <- true; }
+ 			if flip(eps) { 
+ 				hst.SEIR_ItoP <- true; 
+ 				hst.infection_begin <- time - floor(rnd(0, hst.diagnose_time - step) / step) * step;
+ 			}
+    		else if flip(dI) { 
+    			hst.SEIR_ItoD <- true;
+				hst.infection_begin <- time - floor(rnd(0, hst.time_to_death - step) / step) * step;    			
+    		}
+    		else { 
+    			hst.SEIR_ItoR <- true;
+    			hst.infection_begin <- time - floor(rnd(0, hst.recovery_time - step) / step) * step ; 		
+    		}
 		}
 		loop times: asympt_inf{
 			person hst <- one_of (person where each.SEIR_S);
-			hst.infection_begin <- time;
+			hst.infection_begin <- time - floor(rnd(0, hst.recovery_time - step) / step) * step;
         
             hst.SEIR_S <- false;
             hst.SEIR_A <-  true; 
+            integral_A <- integral_A + 1; 
+            
             hst.color <- #orange;  				
 		}
 	}
@@ -228,7 +289,8 @@ signifi cantly lower overall transmission rates.
     }
     
 	init
-	{	
+	{
+		
 		create budynki from: shape_file_budynki with: [id::int(read("ID"))] {
 			color <- #gray;
 			lcolor <- #black;
@@ -245,9 +307,12 @@ signifi cantly lower overall transmission rates.
 			color <- #white;
 			lcolor <- #black;
 		}
-		create stacje_pkp from: shape_file_stacje_pkp with: [id::int(read("ID"))] {
-			color <- #brown;
-			lcolor <- #black;
+		if (model_folder != 'pow_goldapski'){
+			shape_file_stacje_pkp <- file("../includes/" + model_folder + "/PKP_region.shp");	
+			create stacje_pkp from: shape_file_stacje_pkp with: [id::int(read("ID"))] {
+				color <- #brown;
+				lcolor <- #black;
+			}
 		}
 		create koscioly from: shape_file_koscioly with: [id::int(read("ID"))] {
 			color <- #yellow;
@@ -279,14 +344,10 @@ signifi cantly lower overall transmission rates.
 			];
 		}
 		if (use_vaccinations){
-			create vac_policy from: csv_file("../includes/" + model_folder + "/vac_policy.csv", ";", true) with:
+			create vac_policy from: csv_file("../includes/" + model_folder + "/" + vacpol_file, ";", true) with:
 			[
 				datum::date(get("Date")),
-				Pfizer::int(read("Pfizer")),
-				AstraZeneca::int(read("AstraZeneca")),
-				Moderna::int(read("Moderna")),
-				JandJ::int(read("JandJ"))
-				
+				num_people::int(read("num_people"))
 			];
 		}
 				
@@ -375,8 +436,7 @@ signifi cantly lower overall transmission rates.
 	            SEIR_I <-  false; 
 	            SEIR_A <-  false; 
 	            SEIR_R <-  false; 
-	            SEIR_P <-  false;
-	            SEIR_V <- false; 
+	            SEIR_P <-  false; 
 	            color <- #black;
 			}
 		} 		
@@ -471,7 +531,6 @@ signifi cantly lower overall transmission rates.
 		aspect base { draw shape color: color; }
 	}
 	
-	
 	species pogoda
 	{
 		date d;
@@ -554,6 +613,7 @@ signifi cantly lower overall transmission rates.
 			ogr_rozrywka <- 1.0 - cancel_pub_events * 0.45;
 			
 			if (face_covering = 0) {
+				pr_nosi_maske <- 0.0;
 				isMaskInside <- false;
 				isMaskOutside <- false;
 			} else if (face_covering = 1){
@@ -578,56 +638,15 @@ signifi cantly lower overall transmission rates.
 	}
 	species vac_policy {
 		date datum;
-		int Moderna;
-		int Pfizer;
-		int AstraZeneca;
-		int JandJ;
-
-		reflex get_vac_policy when: current_date = datum {
-			loop hst over: person{ // dni do nast szczepionki
-				if(hst.SEIR_V and hst.next_vac>0)
-				{
-					hst.next_vac <- hst.next_vac - 1;
-				} 
-			}
-			
-			// TODO 4 petle dla 4 szczepionek
-			loop times: Pfizer {  //TODO rozdzielic na kilka roznych szczepionek
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
-				hst.SEIR_V <- true;
-				hst.vac_id <- 1;
-				hst.next_vac <- 28; //TODO dac prawidlowe dni 
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
-				}	
-			}
-			loop times: Moderna {  //TODO rozdzielic na kilka roznych szczepionek
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =2 ))));
-				hst.SEIR_V <- true;
-				hst.vac_id <- 2;
-				hst.next_vac <- 28; //TODO dac prawidlowe dni 
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
-				}
+		int num_people;
 		
-			}
-			loop times: AstraZeneca {  //TODO rozdzielic na kilka roznych szczepionek
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =3 ))));
-				hst.SEIR_V <- true;
-				hst.vac_id <- 3;
-				hst.next_vac <- 28; //TODO dac prawidlowe dni 
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
+		reflex get_vac_policy when: current_date = datum {
+			loop times: num_people {
+				person hst <- one_of (person where (!each.SEIR_D and !each.vaccinated));
+				if (flip( 0.7 )){
+					hst.SEIR_IV <- true;
 				}
-			
-			}
-			loop times: JandJ {  //TODO rozdzielic na kilka roznych szczepionek
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V ));
-				hst.SEIR_V <- true;
-				hst.vac_id <- 4;			
+				hst.vaccinated <- true;			
 			}
 		}
 	}
@@ -644,9 +663,8 @@ signifi cantly lower overall transmission rates.
     	bool SEIR_P <- false; // (P)ositively Diagnozed
     	bool SEIR_D <- false; // Dead - nie wystapi, agent umiera
     	bool SEIR_R <- false; // Removed/recovered
-    	bool SEIR_V <- false; // Vaccinated
     	
-    	//bool vaccinated <- false;
+    	bool vaccinated <- false;
     	
     	bool SEIR_ItoP <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu P, ale agent wciaz jest w stanie I
     	bool SEIR_ItoD <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu D, ale agent wciaz jest w stanie I
@@ -666,9 +684,6 @@ signifi cantly lower overall transmission rates.
     	float wsp_osobniczy <- 1.0; // wspolczynnik osobniczy zakazenia, rozwazamy przedzial wiekowy i plec
     	float death_I <- dI;
     	float death_P <- dP;
-    	float vac_accuracy <- 0.0;
-    	int next_vac <- -1;
-    	int vac_id <- -1; // index szczepionki - roboczy
     	
     	bool nosi_maseczke <- flip(pr_nosi_maske); // nosi maseczke (przy nakazie)
     	
@@ -1054,7 +1069,7 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** reflexy odpowiedzialne za model SEAIRPD ***********************************
    	    //--------------------------------------------------------------------------------------------------------
-		reflex S_E when: SEIR_S or SEIR_V and !TRV_C {
+		reflex S_E when: SEIR_S and !TRV_C {
 
    	    	// kontakt z A lub I
    	    	int nb_hosts <- 0;
@@ -1090,50 +1105,8 @@ signifi cantly lower overall transmission rates.
 		
 			weather_infl <- exp((10.0 - current_temp) * 0.0374) 
 			              * exp((current_hum - 50.0)  * 0.0185);
-			float wsp_szczepien <- 1;
-			// TODO dobrac parametry
-			if(SEIR_V)
-			{
-				switch vac_id{
-					match 1{ //Pfizer
-						if(next_vac = -1){
-							wsp_szczepien <- 0.9;	
-						}
-						else{
-							wsp_szczepien <- 0.7;
-						}
-					}
-					
-					match 2{ // Moderna
-						if(next_vac = -1){
-							wsp_szczepien <- 0.9;	
-						}
-						else{
-							wsp_szczepien <- 0.7;
-						}
-						
-					}
-					
-					match 3{ // AstraZeneca
-						if(next_vac = -1){
-							wsp_szczepien <- 0.9;	
-						}
-						else{
-							wsp_szczepien <- 0.7;
-						}
-						
-					}
-					
-					match 4{ // Johnson and Johnson
-						wsp_szczepien <- 0.8;
-						
-					}
-				}
-			}
-			              
 			
-			
-			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy * wsp_szczepien){
+			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy){
 				SEIR_S <- false;
 	   	    	SEIR_E <- true;
 	   	    	color <- #blue;
@@ -1149,11 +1122,14 @@ signifi cantly lower overall transmission rates.
 	    
 	    	if flip(ro) { 
 	    		SEIR_A <- true;  
-	    		
+	    		integral_A <- integral_A + 1; 
+            
 	    		color <- #orange; 
 	    	}
 	    	else        { // przejscie do Infected 
 	    		SEIR_I <- true; // musi zarazac, dlatego bedzie w stanie I
+	    		integral_I <- integral_I + 1; 
+            
 	    		color <- #red;
 	    		
 	    		if flip(eps) { 
@@ -1189,6 +1165,8 @@ signifi cantly lower overall transmission rates.
 			SEIR_I <- false;
 			SEIR_ItoP <- false;
 			SEIR_P <- true; // TODO: napisac zeby po przejsciu do P przeszli na kwarantanne
+			integral_P <- integral_P + 1; 
+            
 			color <- #yellow;
 			
 			diagnose_begin <- time;
@@ -1206,12 +1184,15 @@ signifi cantly lower overall transmission rates.
 			SEIR_I <- false;
 			SEIR_ItoD <- false;
 			SEIR_D <- true;
+			integral_D <- integral_D + 1; 
+            
 		}
 	    
 	    reflex P_D when: (SEIR_P and SEIR_PtoD and time = (diagnose_begin + max(0, time_to_death - diagnose_time) )){
 	    	SEIR_P <- false;
 	    	SEIR_PtoD <- false;
 	    	SEIR_D <- true;
+	    	integral_D <- integral_D + 1; 
 	    }
 	    reflex P_R when: (SEIR_P and SEIR_PtoR and time = (diagnose_begin + recovery_time - diagnose_time) ){
 	    	SEIR_P <- false;
@@ -1234,6 +1215,7 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Folder z mapami" var: model_folder category: "Settings";
 	parameter "Plik wyjsciowy csv" var: csv_file_name category: "Settings";
 	parameter "Strigency policy file" var: strig_file category: "Settings";
+	parameter "Vaccination policy file" var: vacpol_file category: "Settings";
 	
 	
 	parameter "Czy jest kwarantanna" var: isQuarantine category: "Kwarantanna";
@@ -1308,6 +1290,11 @@ experiment main_experiment until: (cycle <= 8065)
 		monitor "PositivelyDiagnozed" name: num_P value: person count(each.SEIR_P);
 		monitor "Dead" name: num_D value: person count(each.SEIR_D);
 		monitor "Infections" name: num_Infections value: person count(each.gdzie_zakazony != nil);
-		monitor "Current date" name: dat value: current_date;
+		monitor "CurrentDate" name: dat value: current_date;
+		monitor "TotalSymptoticalyInfected" name: int_I value: integral_I;
+		monitor "TotalAsymptoticalyInfected" name: int_A value: integral_A;
+		monitor "TotalPositivelyDiagnozed" name: int_P value: integral_P;
+		monitor "TotalDead" name: int_D value: integral_D;
+		
 	}
 }

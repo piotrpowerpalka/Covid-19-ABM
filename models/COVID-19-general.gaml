@@ -79,6 +79,7 @@ signifi cantly lower overall transmission rates.
     int sympt_inf  <- 10;
     int asympt_inf <- 10;
     int immune <- 0; // ile osob jest odpornych na COVID-19
+    int already_vaccinated <- 0; //allows to set number of already vaccinated people at the start of the simulation
     	
 	/*	COVID-19 ver_powiat */
 	file shape_file_budynki <- file("../includes/" + model_folder + "/budynki_region.shp");
@@ -171,6 +172,7 @@ signifi cantly lower overall transmission rates.
 	int number_R <- 0;
 	int number_P <- 0;
 	int number_D <- 0;
+	int number_V <- 0;	
 	
 	// do dopracowania!!!!!!!
 	float p_muzeum <- 0.02739;  	// prawdopodobienstwo (dzienne) pojscia do instytucji kultury (raz w roku)
@@ -197,18 +199,34 @@ signifi cantly lower overall transmission rates.
             hst.SEIR_I <-  true; 
             hst.color <- #red;
             
-            //TODO: sprawdzic czy to samo jak w E_IA
- 			if flip(eps) { hst.SEIR_ItoP <- true; }
-    		else if flip(dI) { hst.SEIR_ItoD <- true; }
-    		else { hst.SEIR_ItoR <- true; }
+            
+ 			if flip(eps) { 
+ 				hst.SEIR_ItoP <- true;
+ 			}
+    		else if flip(dI /*death_I*/) { 	// tu nie ma jeszcze współczynników wyliczonych dla konkretnej osoby - symulacja dopiero zaczyna się
+    			hst.SEIR_ItoD <- true;
+    		}
+    		else { 
+    			hst.SEIR_ItoR <- true;
+    		}
 		}
-		loop times: asympt_inf{
+		loop times: asympt_inf {
 			person hst <- one_of (person where each.SEIR_S);
 			hst.infection_begin <- time;
         
             hst.SEIR_S <- false;
             hst.SEIR_A <-  true; 
             hst.color <- #orange;  				
+		}
+	}
+	
+	reflex set_already_vaccinated when: cycle = 1 {
+		
+		loop times: already_vaccinated {
+			person hst <- one_of (person where each.SEIR_S);
+			hst.SEIR_V <- true;
+			hst.SEIR_S <- false;
+			// hst.color <- #blue; //??
 		}
 	}
 	
@@ -282,7 +300,11 @@ signifi cantly lower overall transmission rates.
 			create vac_policy from: csv_file("../includes/" + model_folder + "/vac_policy.csv", ";", true) with:
 			[
 				datum::date(get("Date")),
-				num_people::int(read("num_people"))
+				Pfizer::int(read("Pfizer")),
+				AstraZeneca::int(read("AstraZeneca")),
+				Moderna::int(read("Moderna")),
+				JandJ::int(read("JandJ"))
+				
 			];
 		}
 				
@@ -341,6 +363,8 @@ signifi cantly lower overall transmission rates.
 				oglada_obrazy <- one_of(muzea);
 				leczySie <- one_of(zdrowie);
 				
+				//wsp_osobniczy określa jaką dany osobnik ma odporność na zarażenie się wirusem
+				
 				if (sex = "M") {
 					wsp_osobniczy <- 1.07;					
 				} else {
@@ -371,7 +395,8 @@ signifi cantly lower overall transmission rates.
 	            SEIR_I <-  false; 
 	            SEIR_A <-  false; 
 	            SEIR_R <-  false; 
-	            SEIR_P <-  false; 
+	            SEIR_P <-  false;
+	            SEIR_V <- false; 
 	            color <- #black;
 			}
 		} 		
@@ -573,15 +598,60 @@ signifi cantly lower overall transmission rates.
 	}
 	species vac_policy {
 		date datum;
-		int num_people;
-		
+		int Moderna;
+		int Pfizer;
+		int AstraZeneca;
+		int JandJ;
+
 		reflex get_vac_policy when: current_date = datum {
-			loop times: num_people {
-				person hst <- one_of (person where (!each.SEIR_D and !each.vaccinated));
-				if (flip( 0.7 )){
-					hst.SEIR_IV <- true;
+			loop hst over: person{ // dni do nast szczepionki
+				if(hst.SEIR_V and hst.next_vac>0)
+				{
+					hst.next_vac <- hst.next_vac - 1;
+				} 
+			}
+			
+			// 4 petle dla 4 szczepionek
+			//Dane o interwałach szczepień (dla osób dorosłych) - https://pacjent.gov.pl/aktualnosci/szczepienia-przeciwko-covid-19  ->  materiały o konkretnych szczepionkach (dostęp na dzień 06.05.2021)
+			
+			
+			//Corminaty - Pfizer/BioNTech
+			loop times: Pfizer {
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 1;
+				hst.next_vac <- 21;
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
+				}	
+			}
+			loop times: Moderna {
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =2 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 2;
+				hst.next_vac <- 28;
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
 				}
-				hst.vaccinated <- true;			
+		
+			}
+			loop times: AstraZeneca {
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =3 ))));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 3;
+				hst.next_vac <- 56; // od 4 do 12 tygodni - przyjęto średnią
+				if (hst.next_vac =  0){
+					hst.next_vac <- -1;
+					
+				}
+			
+			}
+			loop times: JandJ {
+				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V ));
+				hst.SEIR_V <- true;
+				hst.vac_id <- 4;			
 			}
 		}
 	}
@@ -598,8 +668,9 @@ signifi cantly lower overall transmission rates.
     	bool SEIR_P <- false; // (P)ositively Diagnozed
     	bool SEIR_D <- false; // Dead - nie wystapi, agent umiera
     	bool SEIR_R <- false; // Removed/recovered
+    	bool SEIR_V <- false; // Vaccinated
     	
-    	bool vaccinated <- false;
+    	//bool vaccinated <- false;
     	
     	bool SEIR_ItoP <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu P, ale agent wciaz jest w stanie I
     	bool SEIR_ItoD <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu D, ale agent wciaz jest w stanie I
@@ -619,6 +690,9 @@ signifi cantly lower overall transmission rates.
     	float wsp_osobniczy <- 1.0; // wspolczynnik osobniczy zakazenia, rozwazamy przedzial wiekowy i plec
     	float death_I <- dI;
     	float death_P <- dP;
+    	float vac_accuracy <- 0.0;
+    	int next_vac <- -1;
+    	int vac_id <- -1; // index szczepionki - roboczy
     	
     	bool nosi_maseczke <- flip(pr_nosi_maske); // nosi maseczke (przy nakazie)
     	
@@ -710,7 +784,7 @@ signifi cantly lower overall transmission rates.
 		int nr_mszy <- rnd(0,3); // kosciol - niedziela
 		    	
 		
-    	// do poprawienia
+    	// TODO do poprawienia
     	float time_to_death <- floor(rnd(min_time_to_death, max_time_to_death) / step) * step;
     	float incubation_time <- floor(rnd(min_incubation_time, max_incubation_time) / step) * step;
 	   	float recovery_time <- floor(rnd(min_recovery_time, max_recovery_time) / step) * step;
@@ -1004,7 +1078,7 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** reflexy odpowiedzialne za model SEAIRPD ***********************************
    	    //--------------------------------------------------------------------------------------------------------
-		reflex S_E when: SEIR_S and !TRV_C {
+		reflex S_E when: SEIR_S or SEIR_V and !TRV_C {
 
    	    	// kontakt z A lub I
    	    	int nb_hosts <- 0;
@@ -1040,8 +1114,53 @@ signifi cantly lower overall transmission rates.
 		
 			weather_infl <- exp((10.0 - current_temp) * 0.0374) 
 			              * exp((current_hum - 50.0)  * 0.0185);
+			float wsp_szczepien <- 1;
+			// dane o skuteczności - https://www.bbc.com/future/article/20210114-covid-19-how-effective-is-a-single-vaccine-dose
+			//						 https://www.businessinsider.com/covid-vaccines-compared-vaccine-pfizer-oxford-moderna-astrazeneca-side-effects-2021-2?IR=T
+			//	 					 nie znalazłem w oficjalnych danych z pacjent.gov.pl jednoznacznych liczb
+			//TODO okres po szczepieniu przed uzyskaniem odporności można dodatkowo zaimplementować
+			if(SEIR_V)
+			{
+				switch vac_id{
+					match 1{ //Pfizer
+						if(next_vac = -1){
+							wsp_szczepien <- (1 - 0.95);
+						}
+						else{
+							wsp_szczepien <- (1 - 0.52);
+						}
+					}
+					
+					match 2{ // Moderna
+						if(next_vac = -1){
+							wsp_szczepien <- (1 - 0.94);	
+						}
+						else{
+							wsp_szczepien <- (1 - 0.802);
+						}
+						
+					}
+					
+					match 3{ // AstraZeneca
+						if(next_vac = -1){
+							wsp_szczepien <- (1 - 0.76);	
+						}
+						else{
+							wsp_szczepien <- (1 - 0.641);
+						}
+						
+					}
+					
+					match 4{ // Johnson and Johnson
+						wsp_szczepien <- 0.669;
+						
+					}
+				}
+			}
+			              
 			
-			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy){
+			
+			if  flip( pr_rozsiewania * pr_zakaz * weather_infl * wsp_osobniczy * wsp_szczepien){
 				SEIR_S <- false;
 	   	    	SEIR_E <- true;
 	   	    	color <- #blue;
@@ -1196,7 +1315,7 @@ experiment main_experiment until: (cycle <= 8065)
 		display chart refresh: every(10#cycles) {
 				chart "Plot" type: series background: #lightgray style: exploded {
 		//		data "susceptible" value: person count (each.S) color: #green;
-				data "Immune" value: person count (each.SEIR_IV) color: #green;  
+				data "Immune" value: person count (each.SEIR_IV) color: #green; 
 				data "Exposed" value: person count (each.SEIR_E) color: #blue;
 				data "Asymptotically infected" value: person count (each.SEIR_A) color: #orange;
 				data "Symptotically infected" value: person count (each.SEIR_I) color: #red;
@@ -1204,6 +1323,7 @@ experiment main_experiment until: (cycle <= 8065)
 				data "Recovered" value: person count (each.SEIR_R) color: #cyan;
 				data "Dead" value: person count (each.SEIR_D) color: #black;
 				data "Total infections" value: person count (each.gdzie_zakazony != nil) color: #magenta;
+				// could add also the vaccinated people display (as different to vaccinated/immune) to track vaccination efforts against where people most often get exposed
 			}
 		}
 		

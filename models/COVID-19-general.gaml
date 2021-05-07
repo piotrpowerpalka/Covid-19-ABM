@@ -48,16 +48,31 @@ global
 	 * ogr_leczenie% - leczenie zdalne - teleporady
 	 * ogr_kosciol% - msze on-line
 	 */
-	float ogr_pracy <- 0.3;
-	float ogr_szkoly <- 0.1;
-	float ogr_zakupy <- 0.6; // raz w tygodniu
-	float ogr_rozrywka <- 0.0; // wg. dokumnetu USB
-	float ogr_leczenie <- 0.64; // wg. dokumnetu USB
-	float ogr_kosciol <- 0.66; // wg. dokumnetu USB
+	float ogr_pracyIkw2020 <- 1.0; 	 // parametr dla I kw 2020 - ile osob pracuje on-line
+	float ogr_pracyIIkw2020 <- 1.0;	 // parametr dla II kw 2020 - ile osob pracuje on-line
+	float ogr_pracyIIIkw2020 <- 1.0; /// parametr dla III kw 2020 - ile osob pracuje on-line
+	float ogr_pracyIVkw2020 <- 1.0;  /// parametr dla IV kw 2020 - ile osob pracuje on-line
+	float base_ogr_pracy <- 1.0; 	 // parametr bazowy - do niego ladujemy parametry, i na jej podstawie liczymy ostateczna ogr_pracy
+	float ogr_pracy <- 0.3; 		 // parametr operacyjny - oznacza jaki procent osob faktycznie pracuje na miejscu
+	
+	float ogr_szkoly <- 0.1; 		// param operacyjny - na nim dzialamy, 100% - wszyscy chodza do szkoly, 0% - nikt nie chodzi do szkoly
+	float base_ogr_szkoly <- 1.0 ;	//parametr bazowy - do niego ladujemy parametry, i na jej podstawie liczymy ostateczna ogr_szkoly
+	
+	float ogr_zakupy <- 0.6; 		// param operacyjny - na nim dzialamy, 100% - wszyscy robia zakupy fizycznie, 0% - nikt nie robi zakupow fizycznie
+	float base_ogr_zakupy <- 1.0;	// parametr bazowy - do niego ladujemy parametry, i na jej podstawie liczymy ostateczna ogr_zakupy
+	
+	float ogr_rozrywka <- 0.0; 		// wg. dokumnetu USB
+	float base_ogr_rozrywka <- 1.0;	
+	
+	float ogr_leczenie <- 0.64; 	// param operacyjny - na nim dzialamy, 100% - wszyscy chodza do lekarza, 0% nikt nie chodzi do lekarza
+	float base_ogr_leczenie <- 1.0;	// parametr bazowy - do niego ladujemy parametry i na jego podstawie liczymy ogr_leczenie
+	
+	float ogr_kosciol <- 0.66; 		// param operacyjny - na nim dzialamy, 100% - wszyscy chodza fizycznie do kosciola, 0% nikt nie chodzi fizycznie do kosciola
+	float base_ogr_kosciol <- 1.0;	// parametr bazowy - do niego ladujemy parametry i na jego podstawie liczymy ogr_kosciola
 	
 	bool isMaskInside <- true; // Nakaz noszenia maseczek wewnatrz budynkow
 	bool isMaskOutside <- true; // Nakaz noszenia maseczek na zewnatrz
-	float pr_nosi_maske <- 0.6; // wg. dokumentu USB
+	float pr_nosi_maske <- 0.6; // wg. dokumentu USB - procent osob noszacych maseczke
 	
 	float maska_ogr_rozsiewania_wirusa <- 1.0 / 2.3; // na podstawie https://aip.scitation.org/doi/full/10.1063/5.0025476 
 	float maska_ogr_zakazenia <- 1.0 / (7.3/2.3);    // https://aip.scitation.org/doi/full/10.1063/5.0025476
@@ -287,9 +302,27 @@ signifi cantly lower overall transmission rates.
 			}
     	}
     }
+    reflex quaterI_change_params when: current_date = [2020, 1, 1, 0, 0, 0] {
+    	base_ogr_pracy <- ogr_pracyIkw2020;
+    }
+    reflex quaterII_change_params when: current_date = [2020, 4, 1, 0, 0, 0] {
+    	base_ogr_pracy <- ogr_pracyIIkw2020;
+    }
+    reflex quaterIII_change_params when: current_date = [2020, 7, 1, 0, 0, 0] {
+    	base_ogr_pracy <- ogr_pracyIIIkw2020;
+    }
+    reflex quaterIV_change_params when: current_date = [2020, 10, 1, 0, 0, 0] {
+    	base_ogr_pracy <- ogr_pracyIVkw2020;
+    }
     
 	init
 	{
+		ogr_pracy <- 1.0 - base_ogr_pracy;
+		ogr_szkoly <- 1.0 - base_ogr_szkoly;
+		ogr_leczenie <- 1.0 - base_ogr_leczenie;
+		ogr_zakupy <- 1.0 - base_ogr_zakupy;
+		ogr_rozrywka <- 1.0 - base_ogr_rozrywka;
+		ogr_kosciol <- 1.0 - base_ogr_kosciol;
 		
 		create budynki from: shape_file_budynki with: [id::int(read("ID"))] {
 			color <- #gray;
@@ -607,10 +640,10 @@ signifi cantly lower overall transmission rates.
 				isQuarantine <- true;
 			}
 			
-			ogr_szkoly <- 1.0 - school_closing * 0.3;
-			ogr_pracy  <- 1.0 - workplace_closing * 0.3;
-			ogr_zakupy <- 1.0 - stay_home * 0.3;
-			ogr_rozrywka <- 1.0 - cancel_pub_events * 0.45;
+			ogr_szkoly <- 1.0 - school_closing * base_ogr_szkoly/3;
+			ogr_pracy  <- 1.0 - workplace_closing * base_ogr_pracy/3;
+			ogr_zakupy <- 1.0 - stay_home * base_ogr_zakupy/2;
+			ogr_rozrywka <- 1.0 - cancel_pub_events * base_ogr_rozrywka/3;
 			
 			if (face_covering = 0) {
 				pr_nosi_maske <- 0.0;
@@ -1219,11 +1252,18 @@ experiment main_experiment until: (cycle <= 8065)
 	
 	
 	parameter "Czy jest kwarantanna" var: isQuarantine category: "Kwarantanna";
-	parameter "Ograniczenia chodzenia do pracy podczas kwarantanny" var: ogr_pracy category: "Kwarantanna";
-	parameter "Ograniczenia chodzenia na zakupy podczas kwarantanny" var: ogr_zakupy category: "Kwarantanna";
-	parameter "Ograniczenia rozrywania sie podczas kwarantanny" var: ogr_rozrywka category: "Kwarantanna";
-	parameter "Ograniczenia chodzenia do lekarza podczas kwarantanny" var: ogr_leczenie category: "Kwarantanna";
-	parameter "Ograniczenia chodzenia do kosciola podczas kwarantanny" var: ogr_kosciol category: "Kwarantanna";
+	
+	parameter "Ograniczenia chodzenia do szkoly podczas kwarantanny" var: base_ogr_szkoly category: "Kwarantanna";
+	parameter "Ograniczenia chodzenia na zakupy podczas kwarantanny" var: base_ogr_zakupy category: "Kwarantanna";
+	parameter "Ograniczenia rozrywania sie podczas kwarantanny" var: base_ogr_rozrywka category: "Kwarantanna";
+	parameter "Ograniczenia chodzenia do lekarza podczas kwarantanny" var: base_ogr_leczenie category: "Kwarantanna";
+	parameter "Ograniczenia chodzenia do kosciola podczas kwarantanny" var: base_ogr_kosciol category: "Kwarantanna";
+	parameter "Ograniczenie w chodzeniu do pracy - podstawowe" var: base_ogr_pracy category: "Kwarantanna";
+	parameter "Ograniczenie w chodzeniu do pracy w I kwartale 2020" var: ogr_pracyIkw2020 category: "Kwarantanna";
+	parameter "Ograniczenie w chodzeniu do pracy w II kwartale 2020" var: ogr_pracyIIkw2020 category: "Kwarantanna";
+	parameter "Ograniczenie w chodzeniu do pracy w III kwartale 2020" var: ogr_pracyIIIkw2020 category: "Kwarantanna";
+	parameter "Ograniczenie w chodzeniu do pracy w IV kwartale 2020" var: ogr_pracyIVkw2020 category: "Kwarantanna";
+	
 	parameter "Strigency index" var: use_strigency_index category: "Kwarantanna";
 	parameter "Vaccination policy" var: use_vaccinations category: "Kwarantanna";
 	
@@ -1233,6 +1273,7 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Ograniczenie rozsiewania wirusa przy zalozonej maseczce" var: maska_ogr_rozsiewania_wirusa category: "Maseczka";
 	parameter "Ograniczenie zakazenia sie przy zalozonej maseczce" var: maska_ogr_zakazenia category: "Maseczka";
 	parameter "Prawdopodobienstwo ze maseczka jest zalozona prawidlowo" var: maska_prawidlowo category: "Maseczka";
+	parameter "Procent osob noszacych maseczke prawidlowo" var: pr_nosi_maske category: "Maseczka";
 	
 	parameter "Udzial zakazonych bezobjawowo" var: ro category: "COVID-19" min: 0.0 max: 1.0;
 	parameter "Wskaznik smiertelnosci osob hospitalizowanych"    var: dI category: "COVID-19" min: 0.0 max: 1.0;
@@ -1290,11 +1331,10 @@ experiment main_experiment until: (cycle <= 8065)
 		monitor "PositivelyDiagnozed" name: num_P value: person count(each.SEIR_P);
 		monitor "Dead" name: num_D value: person count(each.SEIR_D);
 		monitor "Infections" name: num_Infections value: person count(each.gdzie_zakazony != nil);
-		monitor "CurrentDate" name: dat value: current_date;
 		monitor "TotalSymptoticalyInfected" name: int_I value: integral_I;
 		monitor "TotalAsymptoticalyInfected" name: int_A value: integral_A;
 		monitor "TotalPositivelyDiagnozed" name: int_P value: integral_P;
 		monitor "TotalDead" name: int_D value: integral_D;
-		
+		monitor "CurrentDate" name: dat value: current_date;		
 	}
 }

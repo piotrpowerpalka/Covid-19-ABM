@@ -69,6 +69,7 @@ global
 	
 	float ogr_kosciol <- 0.66; 		// param operacyjny - na nim dzialamy, 100% - wszyscy chodza fizycznie do kosciola, 0% nikt nie chodzi fizycznie do kosciola
 	float base_ogr_kosciol <- 1.0;	// parametr bazowy - do niego ladujemy parametry i na jego podstawie liczymy ogr_kosciola
+	float p_modliSie <- 0.1;	// procent osob religijnych - chodzacych do kosciola (10% - zgrubnie)		
 	
 	bool isMaskInside <- true; // Nakaz noszenia maseczek wewnatrz budynkow
 	bool isMaskOutside <- true; // Nakaz noszenia maseczek na zewnatrz
@@ -168,7 +169,6 @@ signifi cantly lower overall transmission rates.
 	float min_roz_weekend_end <-  14 * 1#h;
 	float max_roz_weekend_end <- 21  * 1#h;
 		
-	float p_modliSie <- 0.1;	// procent osob religijnych - chodzacych do kosciola (10% - zgrubnie)		
 	list<int> msze_start <- [7, 9, 12, 17];
 	list<int> msze_end <- [9, 11, 14, 19];
 	
@@ -902,7 +902,7 @@ signifi cantly lower overall transmission rates.
 		// *************************** reflexy odpowiedzialne za rytm zycia agenta *******************************
    	    //--------------------------------------------------------------------------------------------------------
 		// w kazdym cyklu trzeba wylosowac - ze wzgledu na zmienna polityke rzadu
-		reflex zaloz_maseczke {
+		reflex zaloz_maseczke when: time mod (1*#day) = 0 {
 			nosi_maseczke <- flip(pr_nosi_maske);
 		}
 		//--------------------------------------------------------------------------------------------------------
@@ -1258,6 +1258,9 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Plik wyjsciowy csv" var: csv_file_name category: "Settings";
 	parameter "Strigency policy file" var: strig_file category: "Settings";
 	parameter "Vaccination policy file" var: vacpol_file category: "Settings";
+	
+	parameter "religijnosc" var: p_modliSie category: "Powiat";
+	
 	
 	
 	parameter "Czy jest kwarantanna" var: isQuarantine category: "Kwarantanna";

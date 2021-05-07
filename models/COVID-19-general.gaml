@@ -72,7 +72,9 @@ global
 	
 	bool isMaskInside <- true; // Nakaz noszenia maseczek wewnatrz budynkow
 	bool isMaskOutside <- true; // Nakaz noszenia maseczek na zewnatrz
-	float pr_nosi_maske <- 0.6; // wg. dokumentu USB - procent osob noszacych maseczke
+	
+	float pr_nosi_maske <- 0.6; 		// wg. dokumentu USB - procent osob noszacych maseczke
+	float base_pr_nosi_maske <- 0.5; 	// parametr bazowy - do niego ladujemy parametr
 	
 	float maska_ogr_rozsiewania_wirusa <- 1.0 / 2.3; // na podstawie https://aip.scitation.org/doi/full/10.1063/5.0025476 
 	float maska_ogr_zakazenia <- 1.0 / (7.3/2.3);    // https://aip.scitation.org/doi/full/10.1063/5.0025476
@@ -207,9 +209,7 @@ signifi cantly lower overall transmission rates.
 	float p_muzeum <- 0.02739;  	// prawdopodobienstwo (dzienne) pojscia do instytucji kultury (raz w roku)
 	float p_park <- 0.2857;		// prawdopodobienstwo (dzienne) pojscia na spacer do parku/lasu (dwa razy w tygodniu)
 	float p_zakupy <- 0.5714;		// prawdopodobienstwo (dzienne) pojscia na zakupy
-	
 	float pr_samochod <- 0.8;   // procent osob jezdzacych samochodem
-	
 	
 	// artykul o noszeniu maseczek: https://aip.scitation.org/doi/full/10.1063/5.0025476
 		
@@ -322,7 +322,8 @@ signifi cantly lower overall transmission rates.
 		ogr_leczenie <- 1.0 - base_ogr_leczenie;
 		ogr_zakupy <- 1.0 - base_ogr_zakupy;
 		ogr_rozrywka <- 1.0 - base_ogr_rozrywka;
-		ogr_kosciol <- 1.0 - base_ogr_kosciol;
+		ogr_kosciol <- 1.0 - base_ogr_kosciol;		
+		pr_nosi_maske <- base_pr_nosi_maske;
 		
 		create budynki from: shape_file_budynki with: [id::int(read("ID"))] {
 			color <- #gray;
@@ -650,19 +651,19 @@ signifi cantly lower overall transmission rates.
 				isMaskInside <- false;
 				isMaskOutside <- false;
 			} else if (face_covering = 1){
-				pr_nosi_maske <- 0.5;
+				pr_nosi_maske <- 0.4 * base_pr_nosi_maske;
 				isMaskInside <- false;
 				isMaskOutside <- false;
 			} else if (face_covering = 2){
-				pr_nosi_maske <- 0.6;
+				pr_nosi_maske <- 0.6 * base_pr_nosi_maske;
 				isMaskInside <- false;
 				isMaskOutside <- true;
 			} else if (face_covering = 3){
-				pr_nosi_maske <- 0.7;
+				pr_nosi_maske <- 0.8 * base_pr_nosi_maske;
 				isMaskInside <- true;
 				isMaskOutside <- true;
 			} else if (face_covering = 4){
-				pr_nosi_maske <- 0.8;
+				pr_nosi_maske <- 1.0 * base_pr_nosi_maske;
 				isMaskInside <- true;
 				isMaskOutside <- true;
 			} 
@@ -900,7 +901,10 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** reflexy odpowiedzialne za rytm zycia agenta *******************************
    	    //--------------------------------------------------------------------------------------------------------
-		
+		// w kazdym cyklu trzeba wylosowac - ze wzgledu na zmienna polityke rzadu
+		reflex zaloz_maseczke {
+			nosi_maseczke <- flip(pr_nosi_maske);
+		}
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** praca agenta **************************************************************
    	    //--------------------------------------------------------------------------------------------------------
@@ -1107,6 +1111,7 @@ signifi cantly lower overall transmission rates.
    	    	// kontakt z A lub I
    	    	int nb_hosts <- 0;
    	    	float weather_infl <- 1.0;
+   	    	
 			
    	    	// prawdopodobienstwo rozsiania wirusa
    	    	float pr_rozsiewania <- 0.0;
@@ -1242,6 +1247,10 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Ile ludzi" var: person_num category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych objawowo na poczatku" var: sympt_inf category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych bezobjawowo na poczatku" var: asympt_inf category: "People" min: 0 max: 1000000;
+	parameter "Ile zarazonych wystawionych na poczatku" var: exposed category: "People" min: 0 max: 1000000;
+	parameter "Ile ozdrowiencow na poczatku" var: removed category: "People" min: 0 max: 1000000;
+	parameter "Ile potwierdzonych na poczatku" var: posdiag category: "People" min: 0 max: 1000000;
+	parameter "Ile zmarlo na poczatku" var: dead category: "People" min: 0 max: 1000000;
 	parameter "Ile osob odpornych na poczatku" var: immune category: "People" min: 0 max: 1000000;
 	
 	
@@ -1252,7 +1261,6 @@ experiment main_experiment until: (cycle <= 8065)
 	
 	
 	parameter "Czy jest kwarantanna" var: isQuarantine category: "Kwarantanna";
-	
 	parameter "Ograniczenia chodzenia do szkoly podczas kwarantanny" var: base_ogr_szkoly category: "Kwarantanna";
 	parameter "Ograniczenia chodzenia na zakupy podczas kwarantanny" var: base_ogr_zakupy category: "Kwarantanna";
 	parameter "Ograniczenia rozrywania sie podczas kwarantanny" var: base_ogr_rozrywka category: "Kwarantanna";
@@ -1266,14 +1274,13 @@ experiment main_experiment until: (cycle <= 8065)
 	
 	parameter "Strigency index" var: use_strigency_index category: "Kwarantanna";
 	parameter "Vaccination policy" var: use_vaccinations category: "Kwarantanna";
-	
-	
+		
 	parameter "Czy wymagana jest maseczka wewnatrz budynkow" var: isMaskInside category: "Maseczka";
 	parameter "Czy wymagana jest maseczka poza budynkami" var: isMaskOutside category: "Maseczka";
 	parameter "Ograniczenie rozsiewania wirusa przy zalozonej maseczce" var: maska_ogr_rozsiewania_wirusa category: "Maseczka";
 	parameter "Ograniczenie zakazenia sie przy zalozonej maseczce" var: maska_ogr_zakazenia category: "Maseczka";
 	parameter "Prawdopodobienstwo ze maseczka jest zalozona prawidlowo" var: maska_prawidlowo category: "Maseczka";
-	parameter "Procent osob noszacych maseczke prawidlowo" var: pr_nosi_maske category: "Maseczka";
+	parameter "Procent osob noszacych maseczke prawidlowo" var: base_pr_nosi_maske category: "Maseczka";
 	
 	parameter "Udzial zakazonych bezobjawowo" var: ro category: "COVID-19" min: 0.0 max: 1.0;
 	parameter "Wskaznik smiertelnosci osob hospitalizowanych"    var: dI category: "COVID-19" min: 0.0 max: 1.0;

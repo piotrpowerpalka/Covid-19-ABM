@@ -24,7 +24,9 @@ model COVID19general
 
 global
 {
-	date starting_date <- date([2020,4,1,0,0,0]);
+	float step <- 15 #mn;
+	int starting_cycle <- 0;
+	date starting_date <- date([2020,4,1,0,0,0]) + starting_cycle * step;
 	
 	float current_temp <- 20.0;
 	float current_hum <- 85.0;
@@ -119,7 +121,7 @@ signifi cantly lower overall transmission rates.
 	
 	geometry shape <- envelope(shape_file_drogi);
 	
-	float step <- 15 #mn;
+	
 	float min_incubation_time <- 4.5 * (1 #days) ;
 	float max_incubation_time <- 5.8 * (1 # days) ; ///https://www.acpjournals.org/doi/full/10.7326/M20-0504
 	
@@ -1244,6 +1246,9 @@ signifi cantly lower overall transmission rates.
 
 experiment main_experiment until: (cycle <= 8065)
 {
+	parameter "Cykl poczatkowy" var: starting_cycle category: "Date";
+	
+	
 	parameter "Ile ludzi" var: person_num category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych objawowo na poczatku" var: sympt_inf category: "People" min: 0 max: 1000000;
 	parameter "Ile zarazonych bezobjawowo na poczatku" var: asympt_inf category: "People" min: 0 max: 1000000;

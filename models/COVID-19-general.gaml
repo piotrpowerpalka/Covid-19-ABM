@@ -29,14 +29,15 @@ global
 	float current_hum <- 85.0;
 	
 	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow  
-	string model_folder <- "testowy";
+	//string model_folder <- "testowy";
 	string strig_file <- "stirgency.csv";
 	
 	//string model_folder <- "pow_pruszkowski";
+	string model_folder <- "pow_ropczycko_sedziszowski";
 	string csv_file_name <- "";
 	
 	bool use_strigency_index <- false;
-	bool use_vaccinations <- false;
+	bool use_vaccinations <- true;
 	
 	bool isQuarantine <- true; //  
 	/* kwarantanna: ograniczenia w wychodzeniu z domu: --------------------------
@@ -76,7 +77,7 @@ signifi cantly lower overall transmission rates.
 	 */
 	 
     int person_num <- 1000;
-    int sympt_inf  <- 10;
+    int sympt_inf  <- 73;
     int asympt_inf <- 10;
     int immune <- 0; // ile osob jest odpornych na COVID-19
     int already_vaccinated <- 0; //allows to set number of already vaccinated people at the start of the simulation
@@ -1323,6 +1324,7 @@ experiment main_experiment until: (cycle <= 8065)
 				data "Recovered" value: person count (each.SEIR_R) color: #cyan;
 				data "Dead" value: person count (each.SEIR_D) color: #black;
 				data "Total infections" value: person count (each.gdzie_zakazony != nil) color: #magenta;
+				data "Total vaccinated" value: person count (each.SEIR_V) color: #yellow;
 				// could add also the vaccinated people display (as different to vaccinated/immune) to track vaccination efforts against where people most often get exposed
 			}
 		}
@@ -1336,6 +1338,7 @@ experiment main_experiment until: (cycle <= 8065)
 		monitor "PositivelyDiagnozed" name: num_P value: person count(each.SEIR_P);
 		monitor "Dead" name: num_D value: person count(each.SEIR_D);
 		monitor "Infections" name: num_Infections value: person count(each.gdzie_zakazony != nil);
+		monitor "Vaccinated" name: num_vac value: person count(each.SEIR_V);
 		monitor "Current date" name: dat value: current_date;
 	}
 }

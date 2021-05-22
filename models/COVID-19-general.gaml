@@ -78,7 +78,7 @@ signifi cantly lower overall transmission rates.
 	 
     int person_num <- 1000;
     int sympt_inf  <- 73;
-    int asympt_inf <- 10;
+    int asympt_inf <- 292;
     int immune <- 0; // ile osob jest odpornych na COVID-19
     int already_vaccinated <- 0; //allows to set number of already vaccinated people at the start of the simulation
     	
@@ -615,10 +615,18 @@ signifi cantly lower overall transmission rates.
 			// 4 petle dla 4 szczepionek
 			//Dane o interwałach szczepień (dla osób dorosłych) - https://pacjent.gov.pl/aktualnosci/szczepienia-przeciwko-covid-19  ->  materiały o konkretnych szczepionkach (dostęp na dzień 06.05.2021)
 			
+			//max wiek
+			int maxWiek <- 0;
+			loop temp over: person{
+				if(temp.age > maxWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0)))
+				{
+					maxWiek <- temp.age;	
+				}
+			}
 			
 			//Corminaty - Pfizer/BioNTech
 			loop times: Pfizer {
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
+				person hst <- one_of (person where (each.age = maxWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
 				hst.SEIR_V <- true;
 				hst.vac_id <- 1;
 				hst.next_vac <- 21;

@@ -616,16 +616,16 @@ signifi cantly lower overall transmission rates.
 			//Dane o interwałach szczepień (dla osób dorosłych) - https://pacjent.gov.pl/aktualnosci/szczepienia-przeciwko-covid-19  ->  materiały o konkretnych szczepionkach (dostęp na dzień 06.05.2021)
 			
 			//max wiek
-			int minWiek <- 100;
-			loop temp over: person{
-				if(temp.age < minWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0)))
-				{
-					minWiek <- temp.age;	
-				}
-			}
-			
+
 			//Corminaty - Pfizer/BioNTech
 			loop times: Pfizer {
+				int minWiek <- 100;
+				loop temp over: person{
+					if(temp.age < minWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0)))
+					{
+						minWiek <- temp.age;	
+					}
+				}
 				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
 				hst.SEIR_V <- true;
 				hst.vac_id <- 1;

@@ -33,7 +33,7 @@ global
 	string strig_file <- "stirgency.csv";
 	
 	//string model_folder <- "pow_pruszkowski";
-	string model_folder <- "pow_ropczycko_sedziszowski";
+	string model_folder <- "testowy";
 	string csv_file_name <- "";
 	
 	bool use_strigency_index <- false;
@@ -648,9 +648,9 @@ signifi cantly lower overall transmission rates.
 			loop times: Pfizer {
 				
 				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
-				loop while: (person = nil){	
+				loop while: (hst = nil){	
 					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
-					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+					hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
 				}
 				
 				hst.SEIR_V <- true;
@@ -660,9 +660,9 @@ signifi cantly lower overall transmission rates.
 			
 			loop times: Moderna {
 				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
-				loop while: (person = nil){	
+				loop while: (hst = nil){	
 					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
-					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+					hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
 				}
 				
 				hst.SEIR_V <- true;
@@ -671,9 +671,9 @@ signifi cantly lower overall transmission rates.
 			}
 			loop times: AstraZeneca {
 				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
-				loop while: (person = nil){	
+				loop while: (hst = nil){	
 					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
-					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+					hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
 				}
 				
 				hst.SEIR_V <- true;
@@ -682,9 +682,9 @@ signifi cantly lower overall transmission rates.
 			}
 			loop times: JandJ {
 				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
-				loop while: (person = nil){	
+				loop while: (hst = nil){	
 					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
-					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+					hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
 				}
 				
 				hst.SEIR_V <- true;

@@ -605,65 +605,97 @@ signifi cantly lower overall transmission rates.
 		int JandJ;
 
 		reflex get_vac_policy when: current_date = datum {
-			loop hst over: person{ // dni do nast szczepionki
-				if(hst.SEIR_V and hst.next_vac>0)
+			
+			loop hst over: person{
+				if(hst.SEIR_V and hst.next_vac > 0)	// osoby oczekujace na 2 dawke, ich czas oczekiwania pomniejszyl sie o 1 dzien (i moze juz moga przyjac 2 dawke)
 				{
 					hst.next_vac <- hst.next_vac - 1;
 				} 
 			}
 			
-			// 4 petle dla 4 szczepionek
 			//Dane o interwałach szczepień (dla osób dorosłych) - https://pacjent.gov.pl/aktualnosci/szczepienia-przeciwko-covid-19  ->  materiały o konkretnych szczepionkach (dostęp na dzień 06.05.2021)
 			
-			//max wiek
-
-			//Corminaty - Pfizer/BioNTech
-			loop times: Pfizer {
-				int minWiek <- 100;
-				loop temp over: person{
-					if(temp.age < minWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0)))
-					{
-						minWiek <- temp.age;	
-					}
+			
+			// wyznaczenie minimalnego wieku w społeczeństiwe jeszcze nie zaszczepionym
+			int minWiek <- 100;
+			loop temp over: person{
+				if(temp.age < minWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and !temp.SEIR_V)	//TODO w sumie to wyznaczenie wqieku nie powinno chyba brac pod uwage czy ktos chory etc. bo takich danych w rzeczywistosci nie ma, tylko czy zaszczepiony
+				{
+					minWiek <- temp.age;	
 				}
-				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
+			}
+				
+			// Osoby, ktore juz moga przyjac druga dawke szczepionki maja pierwszenstwo w szczepieniu
+			// ale sposrod nich juz nie ma ustalonego pierwszenstwa (np wg wieku)
+			loop pri over: person where (each.SEIR_V and each.next_vac = 0){
+				
+				if (pri.vac_id = 1){
+					//pri.SEIR_V <- true;
+					pri.next_vac <- -1;
+					Pfizer <- Pfizer - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
+				} else if (pri.vac_id = 2){
+					//pri.SEIR_V <- true;
+					pri.next_vac <- -1;
+					Pfizer <- Moderna - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
+				} else if (pri.vac_id = 3){
+					//pri.SEIR_V <- true;
+					pri.next_vac <- -1;
+					Pfizer <- AstraZeneca - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
+				}
+			}
+			
+			// szczepienie pozostałych, wgl nie zaszczepionych jeszcze osób
+			loop times: Pfizer {
+				
+				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				loop while: (person = nil){	
+					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
+					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				}
+				
 				hst.SEIR_V <- true;
 				hst.vac_id <- 1;
 				hst.next_vac <- 21;
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
-				}	
 			}
+			
 			loop times: Moderna {
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =2 ))));
+				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				loop while: (person = nil){	
+					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
+					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				}
+				
 				hst.SEIR_V <- true;
 				hst.vac_id <- 2;
 				hst.next_vac <- 28;
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
-				}
-		
 			}
 			loop times: AstraZeneca {
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =3 ))));
+				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				loop while: (person = nil){	
+					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
+					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				}
+				
 				hst.SEIR_V <- true;
 				hst.vac_id <- 3;
 				hst.next_vac <- 56; // od 4 do 12 tygodni - przyjęto średnią
-				if (hst.next_vac =  0){
-					hst.next_vac <- -1;
-					
-				}
-			
 			}
 			loop times: JandJ {
-				person hst <- one_of (person where (!each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V ));
+				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				loop while: (person = nil){	
+					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
+					person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				}
+				
 				hst.SEIR_V <- true;
-				hst.vac_id <- 4;			
+				hst.vac_id <- 4;
+				hst.next_vac <- -1;	// zakonczono szczepienie, bo tylko jedna dawka			
 			}
 		}
 	}
+	
+	
+	
 	species	person skills: [moving] parallel: true 
 	{
 		//----------------------------------------------------------------------------------------------------------- 

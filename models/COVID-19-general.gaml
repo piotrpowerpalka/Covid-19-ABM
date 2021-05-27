@@ -629,15 +629,15 @@ signifi cantly lower overall transmission rates.
 			// ale sposrod nich juz nie ma ustalonego pierwszenstwa (np wg wieku)
 			loop pri over: person where (each.SEIR_V and each.next_vac = 0){
 				
-				if (pri.vac_id = 1){
+				if (pri.vac_id = 1 and Pfizer > 0){
 					//pri.SEIR_V <- true;
 					pri.next_vac <- -1;
 					Pfizer <- Pfizer - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
-				} else if (pri.vac_id = 2){
+				} else if (pri.vac_id = 2 and Moderna > 0){
 					//pri.SEIR_V <- true;
 					pri.next_vac <- -1;
 					Pfizer <- Moderna - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
-				} else if (pri.vac_id = 3){
+				} else if (pri.vac_id = 3 and AstraZeneca > 0){
 					//pri.SEIR_V <- true;
 					pri.next_vac <- -1;
 					Pfizer <- AstraZeneca - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia

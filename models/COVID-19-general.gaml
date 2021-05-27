@@ -619,14 +619,14 @@ signifi cantly lower overall transmission rates.
 
 			//Corminaty - Pfizer/BioNTech
 			loop times: Pfizer {
-				int minWiek <- 100;
+				int maxWiek <- 0;
 				loop temp over: person{
-					if(temp.age < minWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0)))
+					if(temp.age > maxWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0 and temp.next_vac = 0 and temp.vac_id =1 )))
 					{
-						minWiek <- temp.age;	
+						maxWiek <- temp.age;	
 					}
 				}
-				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
+				person hst <- one_of (person where (each.age = maxWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
 				hst.SEIR_V <- true;
 				hst.vac_id <- 1;
 				hst.next_vac <- 21;

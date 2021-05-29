@@ -297,13 +297,13 @@ signifi cantly lower overall transmission rates.
 			} 
 		}
     }*/
-    reflex save_csv when: cycle mod 8064 = 0 {
+    /*reflex save_csv when: cycle mod 8064 = 0 {
     	loop ag over: person {
     		if (ag.gdzie_zakazony != nil) {
     			save [ag.id, ag.gdzie_zakazony, ag.kiedy_zakazony, ag.sex, ag.age] to: csv_file_name + "save"+cycle+".csv" type: "csv" rewrite: false;
 			}
     	}
-    }
+    }*/
     reflex quaterI_change_params when: current_date = [2020, 1, 1, 0, 0, 0] {
     	base_ogr_pracy <- ogr_pracyIkw2020;
     }
@@ -1154,6 +1154,8 @@ signifi cantly lower overall transmission rates.
 	   	    	expose_begin <- time;
 	   	    	kiedy_zakazony <- time;
 	   	    	gdzie_zakazony <- location;
+	   	    	
+	   	    	write "exposed;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 			}   	
 	    }
 	    reflex E_IA when: (SEIR_E and time = (expose_begin + incubation_time) ) {
@@ -1164,13 +1166,17 @@ signifi cantly lower overall transmission rates.
 	    		SEIR_A <- true;  
 	    		integral_A <- integral_A + 1; 
             
-	    		color <- #orange; 
+	    		color <- #orange;
+	    		write "asymptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    		
+			 
 	    	}
 	    	else        { // przejscie do Infected 
 	    		SEIR_I <- true; // musi zarazac, dlatego bedzie w stanie I
 	    		integral_I <- integral_I + 1; 
             
 	    		color <- #red;
+	    		write "symptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    		
 	    		if flip(eps) { 
 	    			// przechodzi do stanu Positively Diagnozed - po okresie diagnose_time
@@ -1192,6 +1198,7 @@ signifi cantly lower overall transmission rates.
 	    	SEIR_A <- false;
 	    	SEIR_R <- true;
 	    	color <- #gray;
+	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    } 
 	    
 		reflex I_R when: (SEIR_I and SEIR_ItoR and time = (infection_begin + recovery_time) )  {
@@ -1199,6 +1206,7 @@ signifi cantly lower overall transmission rates.
 			SEIR_ItoR <- false;
 			SEIR_R <- true;
 			color <- #gray;
+			write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 		}
 		
 		reflex I_P when: (SEIR_I and SEIR_ItoP and time = (infection_begin + diagnose_time) )  {
@@ -1210,6 +1218,7 @@ signifi cantly lower overall transmission rates.
 			color <- #yellow;
 			
 			diagnose_begin <- time;
+			write "posdiag;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 			
 			if flip(death_P){
 				// przejscie do stanu D, po okresie choroby max(time_to_death - diagnose_time;0)
@@ -1225,7 +1234,7 @@ signifi cantly lower overall transmission rates.
 			SEIR_ItoD <- false;
 			SEIR_D <- true;
 			integral_D <- integral_D + 1; 
-            
+            write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 		}
 	    
 	    reflex P_D when: (SEIR_P and SEIR_PtoD and time = (diagnose_begin + max(0, time_to_death - diagnose_time) )){
@@ -1233,12 +1242,14 @@ signifi cantly lower overall transmission rates.
 	    	SEIR_PtoD <- false;
 	    	SEIR_D <- true;
 	    	integral_D <- integral_D + 1; 
+	    	write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    }
 	    reflex P_R when: (SEIR_P and SEIR_PtoR and time = (diagnose_begin + recovery_time - diagnose_time) ){
 	    	SEIR_P <- false;
 	    	SEIR_PtoR <- false;
 	    	SEIR_R <- true;
 	    	color <- #gray;
+	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    }
 	}
 }

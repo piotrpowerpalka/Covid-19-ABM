@@ -646,13 +646,14 @@ signifi cantly lower overall transmission rates.
 			
 			// szczepienie pozostałych, wgl nie zaszczepionych jeszcze osób
 			loop times: Pfizer {
-				
-				person hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
-				loop while: (hst = nil){	
-					minWiek <- minWiek + 1;	// gdy już zabraknie osob w danym wieku, prog wiekowy jest podnoszony, az nei znajdzie sie ktos starszy nadajacy sie do szczepienia
-					hst <- one_of (person where (each.age = minWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and !each.SEIR_V));
+				int maxWiek <- 0;
+				loop temp over: person{
+					if(temp.age > maxWiek and !temp.SEIR_D and !temp.SEIR_P and !temp.SEIR_I and (!temp.SEIR_V or (temp.SEIR_V and temp.next_vac = 0 and temp.next_vac = 0 and temp.vac_id =1 )))
+					{
+						maxWiek <- temp.age;	
+					}
 				}
-				
+				person hst <- one_of (person where (each.age = maxWiek and !each.SEIR_D and !each.SEIR_P and !each.SEIR_I and (!each.SEIR_V  or (each.SEIR_V and each.next_vac = 0 and each.vac_id =1 ))));
 				hst.SEIR_V <- true;
 				hst.vac_id <- 1;
 				hst.next_vac <- 21;

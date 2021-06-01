@@ -636,11 +636,11 @@ signifi cantly lower overall transmission rates.
 				} else if (pri.vac_id = 2 and Moderna > 0){
 					//pri.SEIR_V <- true;
 					pri.next_vac <- -1;
-					Pfizer <- Moderna - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
+					Moderna <- Moderna - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
 				} else if (pri.vac_id = 3 and AstraZeneca > 0){
 					//pri.SEIR_V <- true;
 					pri.next_vac <- -1;
-					Pfizer <- AstraZeneca - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
+					AstraZeneca <- AstraZeneca - 1;	//zmniejszenie liczby dostępnych szczepionek danego typu tego dnia
 				}
 			}
 			

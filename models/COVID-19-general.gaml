@@ -31,15 +31,16 @@ global
 	float current_temp <- 20.0;
 	float current_hum <- 85.0;
 	
-	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow  
-	string model_folder <- "pow_goldapski";
-	string strig_file <- "stirgency.csv";
+	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow
+	string model_folder <- "pow_goldapski";  
+	string strig_file <- "../strig_estonia.csv";
 	string vacpol_file <- "vac_policy.csv";
 	
+	//string model_folder <- "pow_goldapski";
 	//string model_folder <- "pow_pruszkowski";
 	string csv_file_name <- "";
 	
-	bool use_strigency_index <- false;
+	bool use_strigency_index <- true;
 	bool use_vaccinations <- false;
 	
 	bool isQuarantine <- true; //  
@@ -96,6 +97,12 @@ signifi cantly lower overall transmission rates.
 	 * In this study, 64.7% of participants obtained an overall moderate-to-poor 
 	 * score regarding the correct usage of a surgical face mask
 	 */
+	float pr_go_to_hospI <- 0.02; // probability to go to the infectious hospital from state I
+	float pr_go_to_hospP <- 0.08; // probability to go to the infectious hospital from state P
+									// na podstawie raportu MZ, raport Michal Rogalski "COVID-19 w Polsce" 
+									// https://docs.google.com/spreadsheets/d/1ierEhD6gcq51HAm433knjnVwey4ZE5DCnu1bW7PRG3E/edit#gid=1136959919
+	float pr_inf_in_inf_hosp <- 0.01; // probability modifier of infection from person being in infectious hospital
+	
 	 
     int person_num <- 1000;
    	int exposed <- 14;
@@ -201,6 +208,7 @@ signifi cantly lower overall transmission rates.
 	int integral_A <- 0;
 	int integral_D <- 0;
 	int integral_P <- 0;
+	int integral_H <- 0;
 	
 	int int_I <- 0;
 	int int_A <- 0;
@@ -701,6 +709,8 @@ signifi cantly lower overall transmission rates.
     	bool SEIR_R <- false; // Removed/recovered
     	
     	bool vaccinated <- false;
+    	bool _TO_INF_HOSP <- false; // should go to the infectious hospital
+    	bool _WENT_TO_INF_HOSP <- false; // went to the infectious hospital
     	
     	bool SEIR_ItoP <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu P, ale agent wciaz jest w stanie I
     	bool SEIR_ItoD <- false; // stan gdy jest juz zadecydowano o przejsciu do stanu D, ale agent wciaz jest w stanie I
@@ -734,6 +744,7 @@ signifi cantly lower overall transmission rates.
     	bool DST_K <- false; // kosciol
     	bool DST_Q <- false; // kwarantanna?
     	point the_target <- nil;
+    	bool in_train <- false;
 		
     	action GOTO_D{
     		DST_D <- true;	
@@ -915,6 +926,8 @@ signifi cantly lower overall transmission rates.
 								and DST_D 			  // jest w domy
 								and pracuje != nil
 								and flip(isQuarantine?ogr_pracy:1.0)
+								 and !_TO_INF_HOSP
+			 
 								and ( time  mod (24 * #hour)) = start_work // zaczyna prace 
 								and ((time / #days) mod 7) < 5  {		  // od poniedzialku do piatku
 			do GOTO_P;
@@ -935,6 +948,8 @@ signifi cantly lower overall transmission rates.
 																  // nie jest pozytywnie zdiagnozowany, ani zakazony 
 								and DST_D 			  // jest w domy
 								and uczySie != nil
+								 and !_TO_INF_HOSP
+			 
 								and flip(isQuarantine?ogr_szkoly:1.0)
 								and ( time  mod (24 * #hour)) = start_work // zaczyna prace 
 								and ((time / #days) mod 7) < 5  {		  // od poniedzialku do piatku
@@ -954,6 +969,10 @@ signifi cantly lower overall transmission rates.
 		{
 			do GOTO_D;
 			the_target <- point(mieszka);
+			
+			if (poza_powiat = 1 and jedziePKP != nil) {
+				in_train <- false;
+			}
 			do CHANGE_TRV distance: location distance_to the_target; 
 		}
 		
@@ -962,6 +981,9 @@ signifi cantly lower overall transmission rates.
    	    //--------------------------------------------------------------------------------------------------------
 		reflex praca_lekarz  when: leczySie != nil	// wie gdzie pojsc do lekarza 
 						and (DST_P or DST_D) 		// jest w pracy lub w domu
+						 and !_TO_INF_HOSP
+						 and !in_train //we exclude this situation 
+			 
 						and flip(isQuarantine?ogr_leczenie:1.0)
 						and ( time  mod (24 * #hour)) = start_lekarz // rozpoczyna sie wizyta
 						and flip(pojdzie_do_lekarza) 	// chce isc do lekarza (prawdopodobienstwo dotyczy dnia)
@@ -988,6 +1010,7 @@ signifi cantly lower overall transmission rates.
 			 and spaceruje != nil and oglada_obrazy != nil  
 			 and !SEIR_P and !SEIR_I 				// nie jest pozytywnie zdiagnozowany, ani zakazony
 			 and flip(isQuarantine?ogr_rozrywka:1.0)
+			 and !_TO_INF_HOSP
 			  
 		     and (DST_D			// jest w domu 
 			 and (
@@ -1020,6 +1043,7 @@ signifi cantly lower overall transmission rates.
 								  and !SEIR_P and !SEIR_I 
 								  and modliSie != nil and DST_D 
 								  and flip(isQuarantine?ogr_kosciol:1.0) 
+								  and !_TO_INF_HOSP
 								  and (
 								  	(((time / #days) mod 7 ) = 6) and 
 								    (( time  mod (24 * #hour)) = msze_start[nr_mszy] )
@@ -1044,7 +1068,9 @@ signifi cantly lower overall transmission rates.
 		reflex dom_sklep when: !SEIR_D and !SEIR_P and !SEIR_I 
 								  and kupuje != nil 
 								  and DST_D  
+								  and !SEIR_P and !SEIR_I 				// nie jest pozytywnie zdiagnozowany, ani zakazony
 								  and flip(isQuarantine?ogr_zakupy:1.0)
+								  and !_TO_INF_HOSP
 								  and (((time / #days) mod 7 ) < 6) and 
 								  (( time  mod (24 * #hour)) =  start_rozrywka) and
 								  flip(p_zakupy)  
@@ -1066,13 +1092,18 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** przejscie na kwarantanne (do szpitala) ************************************
    	    //--------------------------------------------------------------------------------------------------------
-		reflex na_kwarantanne when: leczySie != nil and SEIR_P or SEIR_I {
+		reflex na_kwarantanne when: leczySie != nil 
+							  // and SEIR_P or SEIR_I /// zmiana 2021-06-16
+							  and _TO_INF_HOSP 
+							  and !_WENT_TO_INF_HOSP
+							   {
 			do GOTO_Q;
+			_WENT_TO_INF_HOSP <- true;
 			the_target <- point(leczySie);
 			do CHANGE_TRV distance: location distance_to the_target; 
 			
 		} 
-		reflex wyzdrowial when: DST_Q and SEIR_R and mieszka != nil {
+		reflex wyzdrowial when: DST_Q and !_TO_INF_HOSP and mieszka != nil {
 			do GOTO_D;
 			the_target <- point(mieszka);
 			do CHANGE_TRV distance: location distance_to the_target; 
@@ -1101,6 +1132,10 @@ signifi cantly lower overall transmission rates.
 				if the_target = location {
 					the_target <- nil;
 					do TRV_TO_WALK;
+					
+					if (poza_powiat = 1 and jedziePKP != nil){
+						in_train <- true;
+					}
 				}	
 			}
 		}
@@ -1113,25 +1148,33 @@ signifi cantly lower overall transmission rates.
    	    	// kontakt z A lub I
    	    	int nb_hosts <- 0;
    	    	float weather_infl <- 1.0;
-   	    	
-			
-   	    	// prawdopodobienstwo rozsiania wirusa
    	    	float pr_rozsiewania <- 0.0;
-   	    	loop hst over: self neighbors_at(odleglosc_zarazania * 1#m){
-				if (hst.SEIR_I){
-					pr_rozsiewania <- pr_rozsiewania + exp(-inf_distance_factor * (self distance_to hst)/1#m) * beta 
-								* ( (hst.the_target != nil) ? 
-									(isMaskOutside and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0) :  // agent podrozuje
-									(isMaskInside  and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0)    // agent dotarl - jest wewnatrz budynku
-							  	  );
+   	    	
+			if (!in_train) {
+			   	// prawdopodobienstwo rozsiania wirusa
+	   	    	
+	   	    	loop hst over: self neighbors_at(odleglosc_zarazania * 1#m){
+					if (hst.SEIR_I){
+						pr_rozsiewania <- pr_rozsiewania + 
+									(hst._TO_INF_HOSP?pr_inf_in_inf_hosp:1.0) * exp(-inf_distance_factor * (self distance_to hst)/1#m) * beta 
+									* ( (hst.the_target != nil) ? 
+										(isMaskOutside and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0) :  // agent podrozuje
+										(isMaskInside  and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0)    // agent dotarl - jest wewnatrz budynku
+								  	  );
+					}
+					if (hst.SEIR_A) {
+						pr_rozsiewania <- pr_rozsiewania + exp(-inf_distance_factor * (self distance_to hst)/1#m) * miu 
+									* ( (hst.the_target != nil) ? 
+										(isMaskOutside and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0) :  // agent podrozuje
+										(isMaskInside  and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0)    // agent dotarl - jest wewnatrz budynku
+								  	  );
+					}
 				}
-				if (hst.SEIR_A) {
-					pr_rozsiewania <- pr_rozsiewania + exp(-inf_distance_factor * (self distance_to hst)/1#m) * miu 
-								* ( (hst.the_target != nil) ? 
-									(isMaskOutside and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0) :  // agent podrozuje
-									(isMaskInside  and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0)    // agent dotarl - jest wewnatrz budynku
-							  	  );
-				}
+			} else if (in_train){ /// in train (and outside the district) the infection rate is simplified 
+				pr_rozsiewania <- beta * (
+						person count(each.SEIR_I) + 
+						person count(each.SEIR_A) + 
+						person count(each.SEIR_P) ) / length(person); // probability of infection is proportional to number of infected
 			}
 			
 			float pr_zakaz <- 0.0;
@@ -1173,11 +1216,18 @@ signifi cantly lower overall transmission rates.
 	    	}
 	    	else        { // przejscie do Infected 
 	    		SEIR_I <- true; // musi zarazac, dlatego bedzie w stanie I
-	    		integral_I <- integral_I + 1; 
-            
+	    		integral_I <- integral_I + 1;
+	    		
 	    		color <- #red;
 	    		write "symptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
-	    		
+	    	
+	    		if (flip(pr_go_to_hospI)){
+					_TO_INF_HOSP <- true;
+					integral_H <- integral_H + 1;  	
+					write "symptinf_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+					    			
+	    		}
+	    	
 	    		if flip(eps) { 
 	    			// przechodzi do stanu Positively Diagnozed - po okresie diagnose_time
 	    			SEIR_ItoP <- true;
@@ -1206,19 +1256,31 @@ signifi cantly lower overall transmission rates.
 			SEIR_ItoR <- false;
 			SEIR_R <- true;
 			color <- #gray;
+			_TO_INF_HOSP <- false;
+			_WENT_TO_INF_HOSP <- false;
+			
 			write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 		}
 		
 		reflex I_P when: (SEIR_I and SEIR_ItoP and time = (infection_begin + diagnose_time) )  {
 			SEIR_I <- false;
 			SEIR_ItoP <- false;
-			SEIR_P <- true; // TODO: napisac zeby po przejsciu do P przeszli na kwarantanne
+			SEIR_P <- true; 
+			
 			integral_P <- integral_P + 1; 
             
 			color <- #yellow;
 			
 			diagnose_begin <- time;
 			write "posdiag;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+			
+			if (!_TO_INF_HOSP) {
+				if (flip(pr_go_to_hospP)) {
+					_TO_INF_HOSP <- true;
+					integral_H <- integral_H + 1;
+					write "posdiag_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+				}
+			}
 			
 			if flip(death_P){
 				// przejscie do stanu D, po okresie choroby max(time_to_death - diagnose_time;0)
@@ -1234,6 +1296,9 @@ signifi cantly lower overall transmission rates.
 			SEIR_ItoD <- false;
 			SEIR_D <- true;
 			integral_D <- integral_D + 1; 
+			_TO_INF_HOSP <- false;
+			_WENT_TO_INF_HOSP <- false;
+			
             write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 		}
 	    
@@ -1242,6 +1307,9 @@ signifi cantly lower overall transmission rates.
 	    	SEIR_PtoD <- false;
 	    	SEIR_D <- true;
 	    	integral_D <- integral_D + 1; 
+	    	_TO_INF_HOSP <- false;
+			_WENT_TO_INF_HOSP <- false;
+			
 	    	write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    }
 	    reflex P_R when: (SEIR_P and SEIR_PtoR and time = (diagnose_begin + recovery_time - diagnose_time) ){
@@ -1249,6 +1317,9 @@ signifi cantly lower overall transmission rates.
 	    	SEIR_PtoR <- false;
 	    	SEIR_R <- true;
 	    	color <- #gray;
+	    	_TO_INF_HOSP <- false;
+			_WENT_TO_INF_HOSP <- false;
+			
 	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
 	    }
 	}
@@ -1356,10 +1427,12 @@ experiment main_experiment until: (cycle <= 8065)
 		monitor "Recovered" name: num_R value: person count(each.SEIR_R);		
 		monitor "PositivelyDiagnozed" name: num_P value: person count(each.SEIR_P);
 		monitor "Dead" name: num_D value: person count(each.SEIR_D);
+		monitor "Hospitalized" name: num_H value: person count(each._TO_INF_HOSP);
 		monitor "Infections" name: num_Infections value: person count(each.gdzie_zakazony != nil);
 		monitor "TotalSymptoticalyInfected" name: int_I value: integral_I;
 		monitor "TotalAsymptoticalyInfected" name: int_A value: integral_A;
 		monitor "TotalPositivelyDiagnozed" name: int_P value: integral_P;
+		monitor "TotalHospitalized" name: int_H value: integral_H;
 		monitor "TotalDead" name: int_D value: integral_D;
 		monitor "CurrentDate" name: dat value: current_date;		
 	}

@@ -24,6 +24,11 @@ model COVID19general
 
 global
 {
+	date Ikwdate <- date([2020, 1, 1, 0, 0, 0]);
+	date IIkwdate <- date([2020, 4, 1, 0, 0, 0]);
+	date IIIkwdate <- date([2020, 7, 1, 0, 0, 0]);
+	date IVkwdate <- date([2020, 10, 1, 0, 0, 0]);
+		
 	float step <- 15 #mn;
 	int starting_cycle <- 0;
 	date starting_date <- date([2020,4,1,0,0,0]) + starting_cycle * step;
@@ -312,16 +317,16 @@ signifi cantly lower overall transmission rates.
 			}
     	}
     }*/
-    reflex quaterI_change_params when: current_date = [2020, 1, 1, 0, 0, 0] {
+    reflex quaterI_change_params when: current_date = Ikwdate {
     	base_ogr_pracy <- ogr_pracyIkw2020;
     }
-    reflex quaterII_change_params when: current_date = [2020, 4, 1, 0, 0, 0] {
+    reflex quaterII_change_params when: current_date = IIkwdate {
     	base_ogr_pracy <- ogr_pracyIIkw2020;
     }
-    reflex quaterIII_change_params when: current_date = [2020, 7, 1, 0, 0, 0] {
+    reflex quaterIII_change_params when: current_date = IIIkwdate {
     	base_ogr_pracy <- ogr_pracyIIIkw2020;
     }
-    reflex quaterIV_change_params when: current_date = [2020, 10, 1, 0, 0, 0] {
+    reflex quaterIV_change_params when: current_date = IVkwdate {
     	base_ogr_pracy <- ogr_pracyIVkw2020;
     }
     
@@ -407,11 +412,11 @@ signifi cantly lower overall transmission rates.
 		the_graph <- as_edge_graph(drogi);
 		
 		// przypisanie 
-		domy <- budynki;
-		prace <- miejsca_pracy;
-		edukacje <- szkoly;
-		stacje <- stacje_pkp;
-		nabozenstwa <- koscioly;
+		//domy <- budynki;
+		//prace <- miejsca_pracy;
+		//edukacje <- szkoly;
+		//stacje <- stacje_pkp;
+		//nabozenstwa <- koscioly;
 		
 		if (people_from_shp = true) {
 			file shape_file_agenty <- file ("../includes/" + model_folder + "/mieszkancy_point.shp");
@@ -725,7 +730,7 @@ signifi cantly lower overall transmission rates.
     	bool TRV_C <- false; // jedzie samochodem 
     	bool TRV_P <- false; // jedzie transportem publicznym
     	
-    	int kiedy_zakazony <- -1;
+    	float kiedy_zakazony <- -1.0;
     	point gdzie_zakazony <- nil;
     	float wsp_osobniczy <- 1.0; // wspolczynnik osobniczy zakazenia, rozwazamy przedzial wiekowy i plec
     	float death_I <- dI;
@@ -828,9 +833,9 @@ signifi cantly lower overall transmission rates.
 	   	float recovery_time <- floor(rnd(min_recovery_time, max_recovery_time) / step) * step;
 		float diagnose_time <- floor(rnd(min_diagnose_time, max_diagnose_time) / step) * step;
 		
-		float infection_begin <- -1;
-    	float diagnose_begin <- -1;
-    	float expose_begin <- -1; 
+		float infection_begin <- -1.0;
+    	float diagnose_begin <- -1.0;
+    	float expose_begin <- -1.0; 
     
 		int id;
 		float speed;
@@ -869,7 +874,7 @@ signifi cantly lower overall transmission rates.
 		int bezrobotny;
 		int poza_powiat; 
 			
-		int age min: 0.0 max: 100.0;
+		int age min: 0 max: 100;
 		string sex;
 		int morbidity;
 		

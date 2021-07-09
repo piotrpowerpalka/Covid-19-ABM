@@ -412,11 +412,11 @@ signifi cantly lower overall transmission rates.
 		the_graph <- as_edge_graph(drogi);
 		
 		// przypisanie 
-		//domy <- budynki;
-		//prace <- miejsca_pracy;
-		//edukacje <- szkoly;
-		//stacje <- stacje_pkp;
-		//nabozenstwa <- koscioly;
+		domy <- budynki;
+		prace <- miejsca_pracy;
+		edukacje <- szkoly;
+		stacje <- stacje_pkp;
+		nabozenstwa <- koscioly;
 		
 		if (people_from_shp = true) {
 			file shape_file_agenty <- file ("../includes/" + model_folder + "/mieszkancy_point.shp");

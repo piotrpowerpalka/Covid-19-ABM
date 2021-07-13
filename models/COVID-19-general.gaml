@@ -106,7 +106,7 @@ signifi cantly lower overall transmission rates.
 	float pr_go_to_hospP <- 0.08; // probability to go to the infectious hospital from state P
 									// na podstawie raportu MZ, raport Michal Rogalski "COVID-19 w Polsce" 
 									// https://docs.google.com/spreadsheets/d/1ierEhD6gcq51HAm433knjnVwey4ZE5DCnu1bW7PRG3E/edit#gid=1136959919
-	float pr_inf_in_inf_hosp <- 0.0001; // probability modifier of infection from person being in infectious hospital
+	float pr_inf_in_inf_hosp <- 0.0; // probability modifier of infection from person being in infectious hospital
 	
 	 
     int person_num <- 1000;

@@ -168,20 +168,20 @@ signifi cantly lower overall transmission rates.
 	float min_work_end <- 14 * 1#h;
 	float max_work_end <- 16 * 1#h;
 
-	float min_rozrywka_start <- 18 * 1#h;
-	float max_rozrywka_start <- 20 * 1#h;
-	float min_rozrywka_end <- 21 * 1#h;
-	float max_rozrywka_end <- 23 * 1#h;
+	float min_rozrywka_start <- 8 * 1#h;
+	float max_rozrywka_start <- 13 * 1#h;
+	//float min_rozrywka_end <- 21 * 1#h;
+	//float max_rozrywka_end <- 23 * 1#h;
 
 	float min_lekarz_start <- 8 * 1#h;
-	float max_lekarz_start <- 10 * 1#h;
-	float min_lekarz_end <- 11 * 1#h;
-	float max_lekarz_end <- 13 * 1#h;
+	float max_lekarz_start <- 17 * 1#h;
+	//float min_lekarz_end <- 11 * 1#h;
+	//float max_lekarz_end <- 13 * 1#h;
 	
 	float min_roz_weekend_start <- 9 * 1#h;
-	float max_roz_weekend_start <- 13  * 1#h;
-	float min_roz_weekend_end <-  14 * 1#h;
-	float max_roz_weekend_end <- 21  * 1#h;
+	float max_roz_weekend_start <- 15  * 1#h;
+	//float min_roz_weekend_end <-  14 * 1#h;
+	//float max_roz_weekend_end <- 21  * 1#h;
 		
 	list<int> msze_start <- [7, 9, 12, 17];
 	list<int> msze_end <- [9, 11, 14, 19];
@@ -194,7 +194,7 @@ signifi cantly lower overall transmission rates.
 
 	float is_rozrywka <- 0.5;
 	
-	float pojdzie_do_lekarza <- 0.15;
+	float pojdzie_do_lekarza <- 0.01;
 	
 	float min_speed <- 3.0 # km / # h;
 	float max_speed <- 5.0 # km / # h;
@@ -417,6 +417,7 @@ signifi cantly lower overall transmission rates.
 		edukacje <- szkoly;
 		stacje <- stacje_pkp;
 		nabozenstwa <- koscioly;
+	
 		
 		if (people_from_shp = true) {
 			file shape_file_agenty <- file ("../includes/" + model_folder + "/mieszkancy_point.shp");
@@ -454,6 +455,7 @@ signifi cantly lower overall transmission rates.
 				spaceruje <- one_of(parki);
 				oglada_obrazy <- one_of(muzea);
 				leczySie <- one_of(zdrowie);
+				kupuje <- one_of(sklepy);
 				
 				if (sex = "M") {
 					wsp_osobniczy <- 1.07;					
@@ -854,11 +856,11 @@ signifi cantly lower overall transmission rates.
 		float start_work        <- floor(rnd(min_work_start, max_work_start) / step) * step;
 		float end_work          <- floor(rnd(min_work_end, max_work_end) / step) * step;
 		float start_rozrywka    <- floor(rnd(min_rozrywka_start, max_rozrywka_start) / step) * step;
-		float end_rozrywka      <- floor(rnd(min_rozrywka_end, max_rozrywka_end) / step) * step;
+		//float end_rozrywka      <- floor(rnd(min_rozrywka_end, max_rozrywka_end) / step) * step;
 		float start_lekarz      <- floor(rnd(min_lekarz_start, max_lekarz_start) / step) * step;
-		float end_lekarz        <- floor(rnd(min_lekarz_end, max_lekarz_end) / step) * step;
+		//float end_lekarz        <- floor(rnd(min_lekarz_end, max_lekarz_end) / step) * step;
 		float start_weekend_roz <- floor(rnd(min_roz_weekend_start, max_roz_weekend_start) / step) * step;
-		float end_weekend_roz   <- floor(rnd(min_roz_weekend_end, max_roz_weekend_end) / step) * step;
+		//float end_weekend_roz   <- floor(rnd(min_roz_weekend_end, max_roz_weekend_end) / step) * step;
 		
 		
 		path path_followed <- nil;
@@ -1001,7 +1003,7 @@ signifi cantly lower overall transmission rates.
 		}
 		reflex lekarz_praca when: pracuje != nil 
 						and DST_L 
-						and ( time  mod (24 * #hour)) = end_lekarz
+						and ( time  mod (24 * #hour)) = (start_lekarz + 30#mn)
 		{
 			do GOTO_P;
 			the_target <- point(pracuje);
@@ -1019,8 +1021,8 @@ signifi cantly lower overall transmission rates.
 			  
 		     and (DST_D			// jest w domu 
 			 and (
-			 	(((time / #days) mod 7) < 5  and ( time  mod (24 * #hour)) = start_rozrywka) // jest dzien tygodnia
-			 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz)) ) // lub weekend
+			 	(((time / #days) mod 7) < 5  and ( time  mod (24 * #hour)) = start_rozrywka + 5#h) // jest dzien tygodnia
+			 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz + 6#h)) ) // lub weekend
 			 and flip(p_muzeum + p_park)					// 
 		{
 			do GOTO_R;
@@ -1033,8 +1035,8 @@ signifi cantly lower overall transmission rates.
 		}
 
 		reflex rozywka_dom when: mieszka != nil and DST_R 
-				and ((((time / #days) mod 7) < 5 and ( time  mod (24 * #hour)) = end_rozrywka)
-				 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = end_weekend_roz))
+				and ((((time / #days) mod 7) < 5 and ( time  mod (24 * #hour)) = start_rozrywka + 10#h)
+				 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz + 12#h))
 		{
 			do GOTO_D;
 			the_target <- point(mieszka);
@@ -1070,7 +1072,7 @@ signifi cantly lower overall transmission rates.
 		//--------------------------------------------------------------------------------------------------------
 		// *************************** zakupy agenta **************************************************************
    	    //--------------------------------------------------------------------------------------------------------
-		reflex dom_sklep when: !SEIR_D and !SEIR_P and !SEIR_I 
+		reflex dom_sklep when: !SEIR_D  
 								  and kupuje != nil 
 								  and DST_D  
 								  and !SEIR_P and !SEIR_I 				// nie jest pozytywnie zdiagnozowany, ani zakazony
@@ -1087,7 +1089,7 @@ signifi cantly lower overall transmission rates.
 		reflex sklep_dom when: !SEIR_D and 
 								mieszka != nil and DST_S and  
 								 (((time / #days) mod 7 ) < 6) and 
-								 (( time  mod (24 * #hour)) = end_rozrywka)
+								 (( time  mod (24 * #hour)) = start_rozrywka + 5#h)
 		{
 			do GOTO_D;
 			the_target <- point(mieszka);
@@ -1168,7 +1170,7 @@ signifi cantly lower overall transmission rates.
 								  	  );
 					}
 					if (hst.SEIR_A) {
-						pr_rozsiewania <- pr_rozsiewania + exp(-inf_distance_factor * (self distance_to hst)/1#m) * miu 
+						pr_rozsiewania <- pr_rozsiewania + (hst._TO_INF_HOSP?pr_inf_in_inf_hosp:1.0) * exp(-inf_distance_factor * (self distance_to hst)/1#m) * miu 
 									* ( (hst.the_target != nil) ? 
 										(isMaskOutside and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0) :  // agent podrozuje
 										(isMaskInside  and hst.nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_rozsiewania_wirusa ) : 1.0)    // agent dotarl - jest wewnatrz budynku

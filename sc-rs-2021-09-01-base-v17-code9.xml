@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Experiment_plan>
+
+<Simulation id="1" sourcePath="./samples/SmartCityCOVID-19/models/COVID-19-general.gaml" finalStep="8736" experiment="main_experiment" seed="1001">
+	<Parameters>
+	  <Parameter name="starting_cycle" type="INT" value="17568" />
+    	  <Parameter name="exposed" type="INT" value="380" />
+    	  <Parameter name="sympt_inf" type="INT" value="78" />
+    	  <Parameter name="asympt_inf" type="INT" value="312" />
+    	  <Parameter name="removed" type="INT" value="0" />
+    	  <Parameter name="posdiag" type="INT" value="0" />
+    	  <Parameter name="dead" type="INT" value="0" />
+
+    	  <Parameter name="base_ogr_szkoly" type="FLOAT" value="1.0" />
+    	  <Parameter name="base_ogr_zakupy" type="FLOAT" value="0.11"/>
+    	  <Parameter name="base_ogr_rozrywka" type="FLOAT" value="0.75" />
+    	  <Parameter name="base_ogr_leczenie" type="FLOAT" value="0.23" />
+    	  <Parameter name="base_ogr_kosciol" type="FLOAT" value="0.35" />
+    	  <Parameter name="base_ogr_pracy" type="FLOAT" value="0.0905" />
+    	  <Parameter name="ogr_pracyIkw2020" type="FLOAT" value="0.0905" />
+    	  <Parameter name="ogr_pracyIIkw2020" type="FLOAT" value="0.06" />
+    	  <Parameter name="ogr_pracyIIIkw2020" type="FLOAT" value="0.02" />
+    	  <Parameter name="ogr_pracyIVkw2020" type="FLOAT" value="0.069" />
+    	  <Parameter name="p_modliSie" type="FLOAT" value="0.648" />
+
+    	  <Parameter name="base_pr_nosi_maske" type="FLOAT" value="0.743" />
+
+
+    	  <Parameter name="ro" type="FLOAT" value="0.8" />
+    	  <Parameter name="dI" type="FLOAT" value="0.01356770" />
+    	  <Parameter name="dP" type="FLOAT" value="0.0041681711" />
+    	  <Parameter name="beta" type="FLOAT" value="0.00000395" />
+    	  <Parameter name="miu" type="FLOAT" value="0.00000395" />
+    	  <Parameter name="odleglosc_zarazania" type="INT" value="8" />
+    	  <Parameter name="inf_distance_factor" type="FLOAT" value="0.5" />
+
+	  <Parameter name="model_folder" type="STRING" value="pow_ropczycko_sedziszowski" />
+	  <Parameter name="strig_file" type="STRING" value="../strig_poland.csv" />
+	  <Parameter name="vacpol_file" type="STRING" value="vac_policy.csv" />
+	  <Parameter name="ex_id" type="STRING" value="rs-calib-17" />
+
+
+	  <Parameter name="use_strigency_index" type="BOOLEAN" value="true" />
+	  <Parameter name="use_vaccinations" type="BOOLEAN" value="false" />
+
+          <Parameter name="isQuarantine" type="BOOLEAN" value="true" />
+	  <Parameter name="isMaskInside" type="BOOLEAN" value="true" />
+	  <Parameter name="isMaskOutside" type="BOOLEAN" value="true" />
+
+	  <Parameter name="csv_file_name" type="STRING" value="/home/CENAGIS/ppalka/GAMA/headless/csv/gd-stir-new-A_1001.csv" /> 
+
+
+  </Parameters>
+
+	  <Outputs>
+           <Output id="1" name="dat" framerate="1" />
+           <Output id="2" name="num_S" framerate="1" />
+           <Output id="3" name="num_E" framerate="1" />
+           <Output id="4" name="num_I" framerate="1" />
+           <Output id="5" name="num_A" framerate="1" />
+           <Output id="6" name="num_R" framerate="1" />
+           <Output id="7" name="num_P" framerate="1" />
+           <Output id="8" name="num_H" framerate="1" />
+           <Output id="9" name="num_D" framerate="1" />
+           <Output id="10" name="int_I" framerate="1" />
+           <Output id="11" name="int_A" framerate="1" />
+           <Output id="12" name="int_P" framerate="1" />
+           <Output id="13" name="int_H" framerate="1" />
+          </Outputs>
+	</Simulation>
+
+</Experiment_plan>
+

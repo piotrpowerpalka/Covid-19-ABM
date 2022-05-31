@@ -37,9 +37,10 @@ global
 	float current_hum <- 85.0;
 	
 	bool people_from_shp <- true; // true: generuje agenty na podstaiwe shp, false: generuje $person_num agentow
-	string model_folder <- "pow_goldapski";  
-	string strig_file <- "../strig_estonia.csv";
+	string model_folder <- "testowy";  
+	string strig_file <- "../strig_poland_noQ.csv";
 	string vacpol_file <- "vac_policy.csv";
+	string ex_id <- "exp_id" + int(rnd(1.0)*9999999);
 	
 	//string model_folder <- "pow_goldapski";
 	//string model_folder <- "pow_pruszkowski";
@@ -146,6 +147,8 @@ signifi cantly lower overall transmission rates.
 	float min_time_to_death <- 3 * (1 #days);
 	float max_time_to_death <- 14 * (1 #days);
 	
+	int total_in_train <- 0; 
+	
 	
 	// do weryfikacji i nauczenias
 	float ro <- 0.8;
@@ -165,21 +168,25 @@ signifi cantly lower overall transmission rates.
 	
 	float min_work_start <- 1 * 1#h;
 	float max_work_start <- 3 * 1#h ;
-	float min_work_end <- 14 * 1#h;
-	float max_work_end <- 16 * 1#h;
+	float min_work_end <- 9 * 1#h;
+	float max_work_end <- 11 * 1#h;
 
-	float min_rozrywka_start <- 8 * 1#h;
-	float max_rozrywka_start <- 13 * 1#h;
+	float min_rozrywka_start <- 16 * 1#h;
+	float max_rozrywka_start <- 19 * 1#h;
 	//float min_rozrywka_end <- 21 * 1#h;
 	//float max_rozrywka_end <- 23 * 1#h;
 
-	float min_lekarz_start <- 8 * 1#h;
+	float min_lekarz_start <- 12 * 1#h;
 	float max_lekarz_start <- 17 * 1#h;
 	//float min_lekarz_end <- 11 * 1#h;
 	//float max_lekarz_end <- 13 * 1#h;
 	
 	float min_roz_weekend_start <- 9 * 1#h;
 	float max_roz_weekend_start <- 15  * 1#h;
+	
+	float min_sklepy_start <- 12 * 1#h;
+	float max_sklepy_start <- 16 * 1#h;
+	
 	//float min_roz_weekend_end <-  14 * 1#h;
 	//float max_roz_weekend_end <- 21  * 1#h;
 		
@@ -223,7 +230,7 @@ signifi cantly lower overall transmission rates.
 	// do dopracowania!!!!!!!
 	float p_muzeum <- 0.02739;  	// prawdopodobienstwo (dzienne) pojscia do instytucji kultury (raz w roku)
 	float p_park <- 0.2857;		// prawdopodobienstwo (dzienne) pojscia na spacer do parku/lasu (dwa razy w tygodniu)
-	float p_zakupy <- 0.5714;		// prawdopodobienstwo (dzienne) pojscia na zakupy
+	float p_zakupy <- 1.0 ; //0.5714;		// prawdopodobienstwo (dzienne) pojscia na zakupy
 	float pr_samochod <- 0.8;   // procent osob jezdzacych samochodem
 	
 	// artykul o noszeniu maseczek: https://aip.scitation.org/doi/full/10.1063/5.0025476
@@ -301,6 +308,7 @@ signifi cantly lower overall transmission rates.
             
             hst.color <- #orange;  				
 		}
+		
 	}
 	
 	/*reflex save_shp when: cycle mod 8064 = 0  {
@@ -383,7 +391,9 @@ signifi cantly lower overall transmission rates.
 		if (use_strigency_index){
 			create strigency from: csv_file("../includes/" + model_folder + "/" + strig_file, ";", true) with:
 			[
-				datum::date(get("Date")),
+				strig_year::int(get("Year")),
+				strig_month::int(get("Month")),
+				strig_day::int(get("Day")),
 				school_closing::int(read("C1_School_closing")),
 				workplace_closing::int(read("C2_Workplace_closing")),
 				cancel_pub_events::int(read("C3_Cancel_public_events")),
@@ -400,9 +410,14 @@ signifi cantly lower overall transmission rates.
 			];
 		}
 				
-		create pogoda from: csv_file("../includes/" + model_folder + "/pogoda.csv", ";", true) with:
+		create pogoda from: csv_file("../includes/pogoda.csv", ";", true) with:
 		[
-    		d::date(read("Date")),
+    		weath_year::int(read("Year")),
+    		weath_month::int(read("Month")),
+    		weath_day::int(read("Day")),
+    		weath_hour::int(read("Hour")),
+    		weath_minute::int(read("Minute")),
+    		
     		temperature::float(read("Temperature")),
     		humidity::float(read("Hummidity"))
 		];
@@ -431,7 +446,7 @@ signifi cantly lower overall transmission rates.
 				do TRV_TO_WALK;
 					
 				mieszka <- domy[id_bud mod length(domy)];
-				//location <- any_location_in(mieszka);
+				//location <- point(mieszka);
 				
 				if (id_prac > 0){
 					pracuje <- prace[id_prac mod length(prace)];
@@ -448,7 +463,8 @@ signifi cantly lower overall transmission rates.
 					modliSie <- nil;
 				}
 				if (poza_powiat = 1 and id_pkp > 0){
-					jedziePKP <- stacje_pkp where (each.id = id_pkp);
+					jedziePKP <- one_of(stacje_pkp where (each.id = id_pkp));
+					total_in_train <- total_in_train + 1; 
 				}
 				
 				// losowanie lokalizacji
@@ -584,13 +600,21 @@ signifi cantly lower overall transmission rates.
 	
 	species pogoda
 	{
-		date d;
+		int weath_year;
+		int weath_month;
+		int weath_day;
+		int weath_hour;
+		int weath_minute;
+		
 		float temperature;
 		float humidity;
 		
-		reflex get_weather when: current_date = d {
+		reflex get_weather when: current_date.year = weath_year and current_date.month = weath_month
+							and current_date.day = weath_day and current_date.hour = weath_hour 
+							and current_date.minute = weath_minute {
 			current_temp <- temperature;
 			current_hum <- humidity;
+			//write("Change weather, date = " + current_date + " temp = " + temperature + " hum = " + humidity);
 		}
 	}
 	/*
@@ -598,7 +622,10 @@ signifi cantly lower overall transmission rates.
 	  */
 	species strigency
 	{
-		date datum;
+		int strig_year;
+		int strig_month;
+		int strig_day;
+		
 		int school_closing;
 		/* 
 		 * 0 - No measures
@@ -652,8 +679,15 @@ signifi cantly lower overall transmission rates.
 		  * 5 - Universal availability
  		  */
 		  
-		reflex get_strigency when: current_date = datum {
+		reflex get_strigency when: current_date.year = strig_year 
+							and current_date.month = strig_month 
+							and current_date.day = strig_day
+							and current_date.hour = 0
+							and current_date.minute = 0 {
+			
 				
+			isQuarantine <- false;
+			
 			if (school_closing > 0 or workplace_closing > 0 or stay_home > 0){
 				isQuarantine <- true;
 			}
@@ -684,7 +718,8 @@ signifi cantly lower overall transmission rates.
 				isMaskInside <- true;
 				isMaskOutside <- true;
 			} 
-			
+			//write("Changing stringency index, date = " + current_date + " face cov = " + face_covering);
+						
 		}
 	}
 	species vac_policy {
@@ -861,6 +896,8 @@ signifi cantly lower overall transmission rates.
 		//float end_lekarz        <- floor(rnd(min_lekarz_end, max_lekarz_end) / step) * step;
 		float start_weekend_roz <- floor(rnd(min_roz_weekend_start, max_roz_weekend_start) / step) * step;
 		//float end_weekend_roz   <- floor(rnd(min_roz_weekend_end, max_roz_weekend_end) / step) * step;
+		float start_sklepy <- floor(rnd(min_sklepy_start, max_sklepy_start) / step) * step;
+		 
 		
 		
 		path path_followed <- nil;
@@ -931,7 +968,7 @@ signifi cantly lower overall transmission rates.
 		reflex dom_praca when: !SEIR_D and !SEIR_P and !SEIR_I // nie jest martwy, nie jest pod kwarantanna, 
 																  // nie jest pozytywnie zdiagnozowany, ani zakazony 
 								and DST_D 			  // jest w domy
-								and pracuje != nil
+								and (pracuje != nil or jedziePKP != nil)
 								and flip(isQuarantine?ogr_pracy:1.0)
 								 and !_TO_INF_HOSP
 			 
@@ -979,6 +1016,8 @@ signifi cantly lower overall transmission rates.
 			
 			if (poza_powiat = 1 and jedziePKP != nil) {
 				in_train <- false;
+				//write "wysiada z pociagu;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
+	
 			}
 			do CHANGE_TRV distance: location distance_to the_target; 
 		}
@@ -1019,10 +1058,10 @@ signifi cantly lower overall transmission rates.
 			 and flip(isQuarantine?ogr_rozrywka:1.0)
 			 and !_TO_INF_HOSP
 			  
-		     and (DST_D			// jest w domu 
+		     and ((DST_P or DST_D)			// jest w domu 
 			 and (
-			 	(((time / #days) mod 7) < 5  and ( time  mod (24 * #hour)) = start_rozrywka + 5#h) // jest dzien tygodnia
-			 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz + 6#h)) ) // lub weekend
+			 	(((time / #days) mod 7) < 5  and ( time  mod (24 * #hour)) = start_rozrywka) // jest dzien tygodnia
+			 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz )) ) // lub weekend
 			 and flip(p_muzeum + p_park)					// 
 		{
 			do GOTO_R;
@@ -1035,8 +1074,8 @@ signifi cantly lower overall transmission rates.
 		}
 
 		reflex rozywka_dom when: mieszka != nil and DST_R 
-				and ((((time / #days) mod 7) < 5 and ( time  mod (24 * #hour)) = start_rozrywka + 10#h)
-				 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz + 12#h))
+				and ((((time / #days) mod 7) < 5 and ( time  mod (24 * #hour)) = start_rozrywka + 3#h)
+				 or (((time / #days) mod 7) >= 5 and ( time  mod (24 * #hour)) = start_weekend_roz + 5#h))
 		{
 			do GOTO_D;
 			the_target <- point(mieszka);
@@ -1074,12 +1113,12 @@ signifi cantly lower overall transmission rates.
    	    //--------------------------------------------------------------------------------------------------------
 		reflex dom_sklep when: !SEIR_D  
 								  and kupuje != nil 
-								  and DST_D  
+								  //and (DST_P or DST_D)  
 								  and !SEIR_P and !SEIR_I 				// nie jest pozytywnie zdiagnozowany, ani zakazony
 								  and flip(isQuarantine?ogr_zakupy:1.0)
 								  and !_TO_INF_HOSP
 								  and (((time / #days) mod 7 ) < 6) and 
-								  (( time  mod (24 * #hour)) =  start_rozrywka) and
+								  (( time  mod (24 * #hour)) =  start_sklepy) and
 								  flip(p_zakupy)  
 								  {
 			do GOTO_S;
@@ -1089,11 +1128,22 @@ signifi cantly lower overall transmission rates.
 		reflex sklep_dom when: !SEIR_D and 
 								mieszka != nil and DST_S and  
 								 (((time / #days) mod 7 ) < 6) and 
-								 (( time  mod (24 * #hour)) = start_rozrywka + 5#h)
+								 (( time  mod (24 * #hour)) = start_sklepy + 6#h)
 		{
 			do GOTO_D;
 			the_target <- point(mieszka);
 			do CHANGE_TRV distance: location distance_to the_target; 
+		}
+		
+		reflex wroc_do_domu_o_polnocy when: !SEIR_D and !DST_D and mieszka != nil 
+						and !_TO_INF_HOSP and !_WENT_TO_INF_HOSP 
+						and (( time  mod (24 * #hour)) = 0)  {
+			do GOTO_D;
+			the_target <- point(mieszka);
+			in_train <- false; // na wszelki wypadek
+			//write "wysiada z pociagu na wszelki wypadek;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
+	
+			do CHANGE_TRV distance: location distance_to the_target; 		
 		}
 		
 		//--------------------------------------------------------------------------------------------------------
@@ -1140,8 +1190,10 @@ signifi cantly lower overall transmission rates.
 					the_target <- nil;
 					do TRV_TO_WALK;
 					
-					if (poza_powiat = 1 and jedziePKP != nil){
+					if (poza_powiat = 1 and jedziePKP != nil and DST_P = true){
 						in_train <- true;
+						//write "wsiada do pociagu;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
+	
 					}
 				}	
 			}
@@ -1178,10 +1230,8 @@ signifi cantly lower overall transmission rates.
 					}
 				}
 			} else if (in_train){ /// in train (and outside the district) the infection rate is simplified 
-				pr_rozsiewania <- beta * (
-						person count(each.SEIR_I) + 
-						person count(each.SEIR_A) + 
-						person count(each.SEIR_P) ) / length(person); // probability of infection is proportional to number of infected
+				pr_rozsiewania <- beta * (isQuarantine?10:80);
+						// / length(person); // probability of infection is proportional to number of infected
 			}
 			
 			float pr_zakaz <- 0.0;
@@ -1189,6 +1239,8 @@ signifi cantly lower overall transmission rates.
 							  ( isMaskOutside and nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_zakazenia ) : (1.0) ) : 
 							  ( isMaskInside  and nosi_maseczke ? ( (1.0 - maska_prawidlowo) * maska_ogr_zakazenia ) : (1.0) ) ;
 			
+			pr_zakaz <- DST_D?0.3:1.0; // jesli jest w domu, mniejsze prawd zakazenia
+			 
 			/* wplyw pogody:
 			 * jako srednia temperature przyjalem 10 st C - srednia dla powiatu pruszkowskiego za kwiecien 2020 to 9,46 
 			   jako średnia wilgotnosc  przyjalem 50%     - srednia dla powiatu pruszkowskiego za kwiecien 2020 to 51% */ 
@@ -1205,7 +1257,7 @@ signifi cantly lower overall transmission rates.
 	   	    	kiedy_zakazony <- time;
 	   	    	gdzie_zakazony <- location;
 	   	    	
-	   	    	write "exposed;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	   	    	write "exposed;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 			}   	
 	    }
 	    reflex E_IA when: (SEIR_E and time = (expose_begin + incubation_time) ) {
@@ -1217,7 +1269,7 @@ signifi cantly lower overall transmission rates.
 	    		integral_A <- integral_A + 1; 
             
 	    		color <- #orange;
-	    		write "asymptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    		write "asymptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 	    		
 			 
 	    	}
@@ -1226,12 +1278,12 @@ signifi cantly lower overall transmission rates.
 	    		integral_I <- integral_I + 1;
 	    		
 	    		color <- #red;
-	    		write "symptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    		write "symptinf;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 	    	
 	    		if (flip(pr_go_to_hospI)){
 					_TO_INF_HOSP <- true;
 					integral_H <- integral_H + 1;  	
-					write "symptinf_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+					write "symptinf_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 					    			
 	    		}
 	    	
@@ -1255,7 +1307,7 @@ signifi cantly lower overall transmission rates.
 	    	SEIR_A <- false;
 	    	SEIR_R <- true;
 	    	color <- #gray;
-	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 	    } 
 	    
 		reflex I_R when: (SEIR_I and SEIR_ItoR and time = (infection_begin + recovery_time) )  {
@@ -1266,7 +1318,7 @@ signifi cantly lower overall transmission rates.
 			_TO_INF_HOSP <- false;
 			_WENT_TO_INF_HOSP <- false;
 			
-			write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+			write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 		}
 		
 		reflex I_P when: (SEIR_I and SEIR_ItoP and time = (infection_begin + diagnose_time) )  {
@@ -1279,13 +1331,13 @@ signifi cantly lower overall transmission rates.
 			color <- #yellow;
 			
 			diagnose_begin <- time;
-			write "posdiag;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+			write "posdiag;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 			
 			if (!_TO_INF_HOSP) {
 				if (flip(pr_go_to_hospP)) {
 					_TO_INF_HOSP <- true;
 					integral_H <- integral_H + 1;
-					write "posdiag_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+					write "posdiag_hospitalized;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 				}
 			}
 			
@@ -1306,7 +1358,7 @@ signifi cantly lower overall transmission rates.
 			_TO_INF_HOSP <- false;
 			_WENT_TO_INF_HOSP <- false;
 			
-            write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+            write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 		}
 	    
 	    reflex P_D when: (SEIR_P and SEIR_PtoD and time = (diagnose_begin + max(0, time_to_death - diagnose_time) )){
@@ -1317,7 +1369,7 @@ signifi cantly lower overall transmission rates.
 	    	_TO_INF_HOSP <- false;
 			_WENT_TO_INF_HOSP <- false;
 			
-	    	write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    	write "dead;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 	    }
 	    reflex P_R when: (SEIR_P and SEIR_PtoR and time = (diagnose_begin + recovery_time - diagnose_time) ){
 	    	SEIR_P <- false;
@@ -1327,7 +1379,7 @@ signifi cantly lower overall transmission rates.
 	    	_TO_INF_HOSP <- false;
 			_WENT_TO_INF_HOSP <- false;
 			
-	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age;
+	    	write "recovered;" + self.id + ";" + location.x + ";" + location.y + ";" + time + ";" + self.sex + ";" +  self.age + ";" + ex_id;
 	    }
 	}
 }
@@ -1352,6 +1404,7 @@ experiment main_experiment until: (cycle <= 8065)
 	parameter "Plik wyjsciowy csv" var: csv_file_name category: "Settings";
 	parameter "Strigency policy file" var: strig_file category: "Settings";
 	parameter "Vaccination policy file" var: vacpol_file category: "Settings";
+	parameter "Id experymentu" var: ex_id category: "Settings";
 	
 	parameter "religijnosc" var: p_modliSie category: "Powiat";
 	
